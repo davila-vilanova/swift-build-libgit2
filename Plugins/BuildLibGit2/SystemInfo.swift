@@ -1,45 +1,68 @@
 import Foundation
 import PackagePlugin
 
-func getXcodeDeveloperPath(context: PluginContext) throws -> String {
-    let successPipe = Pipe()
-
-    let xcodeSelect = Process()
-    xcodeSelect.executableURL = try context.tool(named: "xcode-select").url
-    xcodeSelect.arguments = ["--print-path"]
-
-    try runProcess(xcodeSelect, stdout: successPipe)
-    let outputData = successPipe.fileHandleForReading.readDataToEndOfFile()
-    guard let outputString = String(data: outputData, encoding: .utf8) else {
-        throw PluginError("Failed to read output of xcode-select")
-    }
-    return
-        outputString
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-}
-
 func getSystemCPUCount() -> Int {
     return ProcessInfo.processInfo.processorCount
 }
 
-func getiOSSDKVersion(context: PluginContext) throws -> String {
+func getXcodeDeveloperPath(context: PluginContext) throws -> String {
+    try runToolForOutput(tool: "xcode-select", arguments: ["--print-path"], context: context)
+}
+
+struct SDKInfo {
+    let version: String
+    let url: URL
+}
+
+func getSDKInfo(context: PluginContext, platform: Platform) throws -> SDKInfo {
+    let xcodebuildOutput = try runToolForOutput(
+        tool: "xcodebuild",
+        arguments: ["-version", "-sdk", platform.rawValue],
+        context: context
+    )
+    .split(separator: "\n")
+
+    let versionLine =
+        xcodebuildOutput.first(where: { $0.starts(with: "SDKVersion") })
+    let pathLine =
+        xcodebuildOutput.first(where: { $0.starts(with: "Path") })
+
+    guard let version = versionLine?.split(separator: " ").last else {
+        throw PluginError("Failed to find SDK version in xcodebuild output")
+    }
+    guard let path = pathLine?.split(separator: " ").last else {
+        throw PluginError("Failed to find SDK path in xcodebuild output")
+    }
+    guard let url = URL(string: String(path)) else {
+        throw PluginError("Invalid SDK path: \(path)")
+    }
+    return SDKInfo(version: String(version), url: url)
+}
+
+private func runToolForOutput(
+    tool: String, arguments: [String], context: PluginContext,
+    trimmingWhitespaceAndNewLines: Bool = true
+) throws
+    -> String
+{
     let successPipe = Pipe()
 
-    let xcodeBuild = Process()
-    xcodeBuild.executableURL = try context.tool(named: "xcodebuild").url
-    xcodeBuild.arguments = ["-version", "-sdk", "iphoneos"]
+    let process = Process()
+    process.executableURL = try context.tool(named: tool).url
+    process.arguments = arguments
+    process.standardOutput = successPipe
 
-    try runProcess(xcodeBuild, stdout: successPipe)
-    let outputData = successPipe.fileHandleForReading.readDataToEndOfFile()
-    guard let outputString = String(data: outputData, encoding: .utf8) else {
-        throw PluginError("Failed to read output of xcodebuild")
+    try runProcess(process, stdout: successPipe)
+    return try successPipe.contentsAsString()
+}
+
+extension Pipe {
+    fileprivate func contentsAsString(trimmingWhitespaceAndNewLines: Bool = true) throws -> String {
+        let data = fileHandleForReading.readDataToEndOfFile()
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw PluginError("Failed to convert pipe contents to string")
+        }
+        return trimmingWhitespaceAndNewLines
+            ? string.trimmingCharacters(in: .whitespacesAndNewlines) : string
     }
-    let versionLine =
-        outputString
-        .split(separator: "\n")
-        .first(where: { $0.starts(with: "SDKVersion") })
-    guard let version = versionLine?.split(separator: " ").last else {
-        throw PluginError("Failed to find SDKVersion in xcodebuild output")
-    }
-    return String(version)
 }

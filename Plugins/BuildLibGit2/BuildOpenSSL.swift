@@ -2,15 +2,12 @@ import Foundation
 import PackagePlugin
 
 func BuildOpenSSL(context: PluginContext, arguments: [String]) throws {
-    print("iOS SDK Version: \(try getiOSSDKVersion(context: context))")
-    print("Arguments: \(arguments)")
-    return
+    let sdkInfo = try getSDKInfo(context: context, platform: .iPhoneOS)
 
     let fileManager = FileManager.default
 
     let libsDir = context.pluginWorkDirectoryURL.appending(component: "openssl_libs")
-    let logFile = context.pluginWorkDirectoryURL.appending(
-        component: "openssl_build.log")
+    let logFile = context.pluginWorkDirectoryURL.appending(component: "openssl_build.log")
     let packageFrameworksDir = context.package.directoryURL.appending(component: "frameworks")
 
     for url in [libsDir, logFile] {
