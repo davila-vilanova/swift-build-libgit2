@@ -34,41 +34,12 @@ func BuildOpenSSL(context: PluginContext, arguments: [String]) throws {
 }
 
 private func cloneOpenSSL(with context: PluginContext) throws -> URL {
-    let gitTool = try context.tool(named: "git")
-    print("Using \(gitTool.name) at \(gitTool.url.path())")
-
-    // If the OpenSSL repository already exists in the work directory, we can skip cloning.
-    let openSSLDir = context.pluginWorkDirectoryURL.appending(component: "openssl_src")
-    guard !FileManager.default.fileExists(atPath: openSSLDir.path) else {
-        print("OpenSSL repository already exists at \(openSSLDir.path). Skipping clone.")
-        return openSSLDir
-    }
-    guard
-        let repoURL = URL(
-            string: "https://github.com/openssl/openssl.git")
-    else {
-        throw PluginError("Invalid repository URL.")
-    }
-
-    let releaseTag = "openssl-3.5.1"
-
-    print("Cloning \(repoURL) at branch \(releaseTag) into \(openSSLDir.path)")
-    let gitClone = Process()
-    gitClone.executableURL = gitTool.url
-    gitClone.arguments = [
-        "clone",
-        "--branch", releaseTag,
-        "--depth", "1",
-        "--recurse-submodules",
-        "--shallow-submodules",
-        repoURL.absoluteString,
-        openSSLDir.path,
-    ]
-
-    try runProcess(gitClone)
-
-    print("Successfully cloned OpenSSL repository.")
-    return openSSLDir
+    try cloneRepository(
+        at: "https://github.com/openssl/openssl.git",
+        with: context,
+        tag: "openssl-3.5.1",
+        into: "openssl_src"
+    )
 }
 
 private func configureBuild(
