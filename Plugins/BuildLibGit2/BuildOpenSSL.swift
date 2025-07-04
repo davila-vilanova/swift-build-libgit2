@@ -2,8 +2,6 @@ import Foundation
 import PackagePlugin
 
 func BuildOpenSSL(context: PluginContext, arguments: [String]) throws {
-    let sdkInfo = try getSDKInfo(context: context, platform: .iPhoneOS)
-
     let fileManager = FileManager.default
 
     let libsDir = context.pluginWorkDirectoryURL.appending(component: "openssl_libs")
