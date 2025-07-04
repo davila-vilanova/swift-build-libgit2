@@ -5,3 +5,10 @@ enum Architecture: String {
 enum Platform: String {
     case iPhoneOS = "iphoneos"
 }
+
+func systemName(for platform: Platform) -> String {
+    switch platform {
+    case .iPhoneOS:
+        return "iOS"
+    }
+}

@@ -1,12 +1,11 @@
 import Foundation
 import PackagePlugin
 
-func BuildOpenSSL(context: PluginContext, arguments: [String]) throws {
+func buildOpenSSL(context: PluginContext, arguments: [String]) throws {
     let fileManager = FileManager.default
 
-    let libsDir = context.pluginWorkDirectoryURL.appending(component: "openssl_libs")
+    let libsDir = openSSLLibsDirectoryURL(for: context)
     let logFile = context.pluginWorkDirectoryURL.appending(component: "openssl_build.log")
-    let packageFrameworksDir = context.package.directoryURL.appending(component: "frameworks")
 
     for url in [libsDir, logFile] {
         if fileManager.fileExists(atPath: url.path) {
@@ -18,20 +17,26 @@ func BuildOpenSSL(context: PluginContext, arguments: [String]) throws {
     print("Will log to \(logFile.path())")
     let logFileHandle = try FileHandle(forUpdating: logFile)
 
-    let srcDir = try cloneOpenSSL(with: context)
+    let srcDir = try cloneRepository(with: context)
     try configureBuild(
         with: context, in: srcDir, installURL: libsDir, loggingTo: logFileHandle)
     try runMake(with: context, in: srcDir, loggingTo: logFileHandle)
     try runMakeInstall(with: context, in: srcDir, loggingTo: logFileHandle)
-    let frameworkURLs = try createXCFrameworks(
+    try createXCFrameworks(
         with: context,
         fromLibrariesAt: libsDir,
-        placeInto: packageFrameworksDir,
+        placeInto: packageFrameworksDirectory(for: context),
         loggingTo: logFileHandle
     )
 }
 
-private func cloneOpenSSL(with context: PluginContext) throws -> URL {
+func openSSLLibsDirectoryURL(
+    for context: PluginContext
+) -> URL {
+    context.pluginWorkDirectoryURL.appending(component: "openssl_libs")
+}
+
+private func cloneRepository(with context: PluginContext) throws -> URL {
     try cloneRepository(
         at: "https://github.com/openssl/openssl.git",
         with: context,
@@ -125,37 +130,15 @@ private func createXCFrameworks(
     placeInto frameworksDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws -> [URL] {
-    let xcodebuildTool = try context.tool(named: "xcodebuild")
-    print("Using \(xcodebuildTool.name) at \(xcodebuildTool.url.path())")
 
     return try ["libssl", "libcrypto"].map { libname in
-        let frameworkURL = frameworksDir.appending(component: "\(libname).xcframework")
-        if FileManager.default.fileExists(atPath: frameworkURL.path) {
-            try FileManager.default.removeItem(at: frameworkURL)
-        }
-
-        let frameworkPath = frameworkURL.path()
-        let libraryPath = "\(outputDir.path())/lib/\(libname).a"
-        print("Creating \(frameworkURL.path())\nfrom library at \(libraryPath)")
-
-        let xcodebuild = Process()
-        xcodebuild.executableURL = xcodebuildTool.url
-        xcodebuild.arguments = [
-            "-create-xcframework",
-            "-library", libraryPath,
-            "-output", frameworkPath,
-        ]
-        xcodebuild.standardOutput = logFileHandle
-        xcodebuild.standardError = logFileHandle
-        try xcodebuild.run()
-        xcodebuild.waitUntilExit()
-        guard xcodebuild.terminationStatus == 0 else {
-            throw PluginError(
-                "Failed to create \(frameworkURL.path()). See log for details."
-            )
-        }
-        print("Successfully created \(frameworkURL.path())")
-        return frameworkURL
+        try createXCFramework(
+            named: libname,
+            with: context,
+            fromLibraryAt: outputDir.appending(component: "lib/\(libname).a"),
+            placeInto: frameworksDir,
+            loggingTo: logFileHandle
+        )
     }
 }
 
