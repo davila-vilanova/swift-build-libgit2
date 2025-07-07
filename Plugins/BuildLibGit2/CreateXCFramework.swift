@@ -47,7 +47,7 @@ func createXCFramework(
 func packageFrameworksDirectory(
     for context: PluginContext
 ) throws -> URL {
-    let frameworksDir = context.package.directoryURL.appending(component: "frameworks")
+    let frameworksDir = context.package.directoryURL.appending(component: "Frameworks")
     if !FileManager.default.fileExists(atPath: frameworksDir.path) {
         try FileManager.default.createDirectory(
             at: frameworksDir,

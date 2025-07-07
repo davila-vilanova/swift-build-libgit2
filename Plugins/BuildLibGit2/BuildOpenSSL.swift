@@ -22,10 +22,11 @@ func buildOpenSSL(context: PluginContext, arguments: [String]) throws {
         with: context, in: srcDir, installURL: libsDir, loggingTo: logFileHandle)
     try runMake(with: context, in: srcDir, loggingTo: logFileHandle)
     try runMakeInstall(with: context, in: srcDir, loggingTo: logFileHandle)
+    print("OpenSSL libraries can be found at \(libsDir.path())")
     try createXCFrameworks(
         with: context,
         fromLibrariesAt: libsDir,
-        placeInto: packageFrameworksDirectory(for: context),
+        placeInto: try packageFrameworksDirectory(for: context),
         loggingTo: logFileHandle
     )
 }
@@ -79,7 +80,6 @@ private func runMake(
     print("Running Make...")
 
     let makeTool = try context.tool(named: "make")
-    print("Using \(makeTool.name) at \(makeTool.url.path())")
 
     let make = Process()
     make.currentDirectoryURL = srcDir
@@ -107,7 +107,6 @@ private func runMakeInstall(
     print("Running Make Install...")
 
     let makeTool = try context.tool(named: "make")
-    print("Using \(makeTool.name) at \(makeTool.url.path())")
 
     let makeInstall = Process()
     makeInstall.currentDirectoryURL = srcDir
