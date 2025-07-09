@@ -13,7 +13,7 @@ func buildLibSSH2(context: PluginContext, arguments: [String]) throws {
         }
     }
     try fileManager.createDirectory(at: libsDir, withIntermediateDirectories: true)
-    try fileManager.createFile(atPath: logFile.path, contents: Data())
+    fileManager.createFile(atPath: logFile.path, contents: Data())
     print("Will log to \(logFile.path())")
     let logFileHandle = try FileHandle(forUpdating: logFile)
 

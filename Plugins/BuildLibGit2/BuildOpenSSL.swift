@@ -13,7 +13,7 @@ func buildOpenSSL(context: PluginContext, arguments: [String]) throws {
         }
     }
     try fileManager.createDirectory(at: libsDir, withIntermediateDirectories: true)
-    try fileManager.createFile(atPath: logFile.path, contents: Data())
+    fileManager.createFile(atPath: logFile.path, contents: Data())
     print("Will log to \(logFile.path())")
     let logFileHandle = try FileHandle(forUpdating: logFile)
 
@@ -123,6 +123,7 @@ private func runMakeInstall(
     print("Make Install completed successfully.")
 }
 
+@discardableResult
 private func createXCFrameworks(
     with context: PluginContext,
     fromLibrariesAt outputDir: URL,
