@@ -2,6 +2,9 @@ import Foundation
 import PackagePlugin
 
 func buildLibGit2(context: PluginContext, arguments: [String]) throws {
+    let platform = Platform.iPhoneOS
+    let architecture = Architecture.arm64
+
     let fileManager = FileManager.default
     let libsDir = libGit2LibsDirectoryURL(for: context)
     let logFile = context.pluginWorkDirectoryURL.appending(component: "libgit2_build.log")
@@ -11,7 +14,7 @@ func buildLibGit2(context: PluginContext, arguments: [String]) throws {
         }
     }
     try fileManager.createDirectory(at: libsDir, withIntermediateDirectories: true)
-    try fileManager.createFile(atPath: logFile.path(), contents: Data())
+    fileManager.createFile(atPath: logFile.path(), contents: Data())
     print("Will log to \(logFile.path())")
     let logFileHandle = try FileHandle(forUpdating: logFile)
 
@@ -22,9 +25,9 @@ func buildLibGit2(context: PluginContext, arguments: [String]) throws {
         in: srcDir,
         installURL: libsDir,
         loggingTo: logFileHandle,
-        platform: .iPhoneOS,
-        architecture: .arm64,
-        sdkInfo: try getSDKInfo(context: context, platform: .iPhoneOS)
+        platform: platform,
+        architecture: architecture,
+        sdkInfo: try getSDKInfo(context: context, platform: platform)
     )
 
     try buildAndInstall(
@@ -33,7 +36,7 @@ func buildLibGit2(context: PluginContext, arguments: [String]) throws {
         loggingTo: logFileHandle
     )
 
-    try createXCFramework(
+    let frameworkURL = try createXCFramework(
         named: "libgit2",
         with: context,
         fromLibraryAt: libsDir.appending(component: "lib/libgit2.a"),
@@ -41,6 +44,8 @@ func buildLibGit2(context: PluginContext, arguments: [String]) throws {
         placeInto: try packageFrameworksDirectory(for: context),
         loggingTo: logFileHandle
     )
+
+    try writeModuleMap(inFrameworkAt: frameworkURL, platform: platform, architecture: architecture)
 }
 
 func libGit2LibsDirectoryURL(for context: PluginContext) -> URL {
