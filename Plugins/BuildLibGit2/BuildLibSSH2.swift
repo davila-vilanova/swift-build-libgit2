@@ -37,14 +37,14 @@ func buildLibSSH2(context: PluginContext, arguments: [String]) throws {
 
     print("libssh2 library can be found at \(libsDir.path())")
 
-    try createXCFramework(
-        named: "libssh2",
-        with: context,
-        fromLibraryAt: libsDir.appending(component: "lib/libssh2.a"),
-        headers: libsDir.appending(component: "include"),
-        placeInto: try packageFrameworksDirectory(for: context),
-        loggingTo: logFileHandle
-    )
+//    try createXCFramework(
+//        named: "libssh2",
+//        with: context,
+//        fromLibraryAt: libsDir.appending(component: "lib/libssh2.a"),
+//        headers: libsDir.appending(component: "include"),
+//        placeInto: try packageFrameworksDirectory(for: context),
+//        loggingTo: logFileHandle
+//    )
 }
 
 func libSSH2LibsDirectoryURL(for context: PluginContext) -> URL {
@@ -75,7 +75,7 @@ private func configureBuild(
     cmake.currentDirectoryURL = srcDir
     cmake.executableURL = cmakeTool.url
 
-    let openSSLLibsDir = openSSLLibsDirectoryURL(for: context)
+    let openSSLLibsDir = openSSLLibsDirectoryURL(for: context, platform: platform)
     cmake.arguments = [
         "-DCMAKE_OSX_SYSROOT=\(sdkInfo.url.path)",
         "-DCMAKE_SYSTEM_NAME=\(systemName(for: platform))",

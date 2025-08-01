@@ -9,7 +9,7 @@ func cloneRepository(
 ) throws -> URL {
     let gitTool = try context.tool(named: "git")
 
-    // If the OpenSSL repository already exists in the work directory, we can skip cloning.
+    // If the repository already exists in the work directory, we can skip cloning.
     let localURL = context.pluginWorkDirectoryURL.appending(component: directoryName)
     guard !FileManager.default.fileExists(atPath: localURL.path) else {
         print("Repository already exists at \(localURL.path). Skipping clone.")

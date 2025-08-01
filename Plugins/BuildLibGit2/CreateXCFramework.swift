@@ -5,10 +5,10 @@ import PackagePlugin
 func createXCFramework(
     named frameworkName: String,
     with context: PluginContext,
-    fromLibraryAt libraryPath: URL,
+    fromLibrariesAt libDirsByPlatform: [Platform: URL],
     headers: URL? = nil,
     placeInto frameworksDir: URL,
-    loggingTo logFileHandle: FileHandle
+    loggingTo logFileHandle: FileHandle? = nil
 ) throws -> URL {
     let xcodebuildTool = try context.tool(named: "xcodebuild")
 
@@ -18,26 +18,26 @@ func createXCFramework(
     }
 
     let frameworkPath = frameworkURL.path()
-    print(" Creating \(frameworkURL.path())\nfrom library at \(libraryPath.path())")
+    print(" Creating \(frameworkURL.path())\nfrom libraries at \(libDirsByPlatform)")
+
+    let headersArgs = (headers.map { ["-headers", "\($0.path())"] } ?? [])
 
     let xcodebuild = Process()
-    xcodebuild.executableURL = xcodebuildTool.url
+    xcodebuild.executableURL = fakeXcodeBuildURL(context) ?? xcodebuildTool.url
     xcodebuild.arguments =
-        [
-            "-create-xcframework",
-            "-library", libraryPath.path(),
-        ] + (headers.map { ["-headers", "\($0.path())"] } ?? [])
-        + [
-            "-output", frameworkPath,
-        ]
+        ["-create-xcframework"]
+        + libDirsByPlatform.flatMap { (platform, libraryURL) in
+            [
+                "-library", libraryURL.path(),
+            ] + headersArgs
+        }
+        + ["-output", frameworkPath]
 
-    xcodebuild.standardOutput = logFileHandle
-    xcodebuild.standardError = logFileHandle
     try xcodebuild.run()
     xcodebuild.waitUntilExit()
     guard xcodebuild.terminationStatus == 0 else {
         throw PluginError(
-            "Failed to create \(frameworkURL.path()). See log for details."
+            "Failed to create \(frameworkURL.path())."
         )
     }
     print("Successfully created \(frameworkURL.path())")

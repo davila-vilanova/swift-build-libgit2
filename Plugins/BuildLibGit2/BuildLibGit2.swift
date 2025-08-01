@@ -36,16 +36,16 @@ func buildLibGit2(context: PluginContext, arguments: [String]) throws {
         loggingTo: logFileHandle
     )
 
-    let frameworkURL = try createXCFramework(
-        named: "libgit2",
-        with: context,
-        fromLibraryAt: libsDir.appending(component: "lib/libgit2.a"),
-        headers: libsDir.appending(component: "include"),
-        placeInto: try packageFrameworksDirectory(for: context),
-        loggingTo: logFileHandle
-    )
-
-    try writeModuleMap(inFrameworkAt: frameworkURL, platform: platform, architecture: architecture)
+//    let frameworkURL = try createXCFramework(
+//        named: "libgit2",
+//        with: context,
+//        fromLibraryAt: libsDir.appending(component: "lib/libgit2.a"),
+//        headers: libsDir.appending(component: "include"),
+//        placeInto: try packageFrameworksDirectory(for: context),
+//        loggingTo: logFileHandle
+//    )
+//
+//    try writeModuleMap(inFrameworkAt: frameworkURL, platform: platform, architecture: architecture)
 }
 
 func libGit2LibsDirectoryURL(for context: PluginContext) -> URL {
@@ -76,7 +76,7 @@ private func configureBuild(
     cmake.executableURL = cmakeTool.url
 
     let libSSH2LibsDir = libSSH2LibsDirectoryURL(for: context)
-    let openSSLLibsDir = openSSLLibsDirectoryURL(for: context)
+    let openSSLLibsDir = openSSLLibsDirectoryURL(for: context, platform: platform)
     print("Using OpenSSL libs at \(openSSLLibsDir.path())")
     cmake.arguments = [
         "-DCMAKE_OSX_SYSROOT=\(sdkInfo.url.path())",
