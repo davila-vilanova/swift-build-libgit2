@@ -20,10 +20,10 @@ func libraryDirectoryName(for platform: Platform) -> String {
     platform.rawValue
 }
 
-func systemName(for platform: Platform) -> String {
+func cmakeSystemName(for platform: Platform) -> String {
     switch platform {
     case .iPhoneOS: "iOS"
-    case .iPhoneSimulator: "iOS"  // TODO: Check
+    case .iPhoneSimulator: "iOS"
     }
 }
 
@@ -31,7 +31,7 @@ func frameworkDirectoryName(for platform: Platform, architecture: Architecture) 
     let platformSection =
         switch platform {
         case .iPhoneOS: "ios"
-        case .iPhoneSimulator: "iOS"  // TODO: Check
+        case .iPhoneSimulator: "ios"
         }
 
     let archSection =
@@ -39,7 +39,15 @@ func frameworkDirectoryName(for platform: Platform, architecture: Architecture) 
         case .arm64: "arm64"
         }
 
-    return "\(platformSection)-\(archSection)"
+    let simulatorSection =
+        switch platform {
+        case .iPhoneOS: ""
+        case .iPhoneSimulator: "simulator"
+        }
+
+    return [platformSection, archSection, simulatorSection]
+        .filter { !$0.isEmpty }
+        .joined(separator: "-")
 }
 
 func sdkName(for platform: Platform) -> String {

@@ -5,10 +5,8 @@ import PackagePlugin
 func createXCFramework(
     named frameworkName: String,
     with context: PluginContext,
-    fromLibrariesAt libDirsByPlatform: [Platform: URL],
-    headers: URL? = nil,
+    fromLibrariesAt libLocations: LibraryLocationsByPlatform,
     placeInto frameworksDir: URL,
-    loggingTo logFileHandle: FileHandle? = nil
 ) throws -> URL {
     let xcodebuildTool = try context.tool(named: "xcodebuild")
 
@@ -18,18 +16,23 @@ func createXCFramework(
     }
 
     let frameworkPath = frameworkURL.path()
-    print(" Creating \(frameworkURL.path())\nfrom libraries at \(libDirsByPlatform)")
-
-    let headersArgs = (headers.map { ["-headers", "\($0.path())"] } ?? [])
+    print(" Creating \(frameworkURL.path())\nfrom libraries at \(libLocations)")
 
     let xcodebuild = Process()
     xcodebuild.executableURL = fakeXcodeBuildURL(context) ?? xcodebuildTool.url
     xcodebuild.arguments =
         ["-create-xcframework"]
-        + libDirsByPlatform.flatMap { (platform, libraryURL) in
+        + libLocations.flatMap { (platform, locations) in
             [
-                "-library", libraryURL.path(),
-            ] + headersArgs
+                "-library", locations.binary.path(),
+//                "-headers", locations.headers.path(),
+            ] + {
+                if let headers = locations.headers {
+                    ["-headers", headers.path(),]
+                } else {
+                    []
+                }
+            }()
         }
         + ["-output", frameworkPath]
 
@@ -56,3 +59,10 @@ func packageFrameworksDirectory(
     }
     return frameworksDir
 }
+
+struct LibraryLocations {
+    let binary: URL
+    let headers: URL?
+}
+
+typealias LibraryLocationsByPlatform = [Platform: LibraryLocations]

@@ -17,7 +17,8 @@ struct SDKInfo {
 func getSDKInfo(context: PluginContext, platform: Platform) throws -> SDKInfo {
     let xcodebuildOutput = try runToolForOutput(
         tool: "xcodebuild",
-        arguments: ["-version", "-sdk", platform.rawValue],
+        arguments: ["-version", "-sdk", platform.rawValue.lowercased()],
+        // TODO: Use dedicated function to produce SDK name from platform, so that case names can change without breaking this.
         context: context
     )
     .split(separator: "\n")

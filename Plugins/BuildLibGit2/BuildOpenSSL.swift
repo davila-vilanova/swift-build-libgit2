@@ -183,21 +183,25 @@ func createOpenSSLXCFrameworks(
     platforms: [Platform]
 ) throws -> [URL] {
     try ["libssl", "libcrypto"].map { libname in
-        let libDirsByPlatform = [Platform: URL](
+        let libDirsByPlatform = LibraryLocationsByPlatform(
             uniqueKeysWithValues: platforms.map { platform in
-                let libURL = openSSLLibsDirectoryURL(
-                    for: context, platform: platform).appending(component: "lib/\(libname).a"
+                let libDir = openSSLLibsDirectoryURL(
+                    for: context, platform: platform
+                )
+                return (
+                    platform, // key
+                    LibraryLocations( // value
+                        binary: libDir.appending(component: "lib/\(libname).a"),
+                        headers: nil // libDir.appending(component: "include")
                     )
-                return (platform, libURL)
+                )
             }
         )
-
         return try createXCFramework(
             named: libname,
             with: context,
             fromLibrariesAt: libDirsByPlatform,
             placeInto: try packageFrameworksDirectory(for: context),
-            loggingTo: nil
         )
     }
 }

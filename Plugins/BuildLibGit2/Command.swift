@@ -25,15 +25,28 @@ struct Command: CommandPlugin {
         switch libraryArgument {
         case "openssl":
             for platform in platforms {
+                print("\nBuilding OpenSSL for \(platform)...")
                 try buildOpenSSL(
                     context: context, platform: platform, arguments: arguments
                 )
             }
             try createOpenSSLXCFrameworks(with: context, platforms: platforms)
         case "libssh2":
-            try buildLibSSH2(context: context, arguments: arguments)
+            for platform in platforms {
+                print("\nBuilding libssh2 for \(platform)...")
+                try buildLibSSH2(
+                    context: context, platform: platform, arguments: arguments
+                )
+            }
+            try createLibSSH2Framework(with: context, platforms: platforms)
         case "libgit2":
-            try buildLibGit2(context: context, arguments: arguments)
+            for platform in platforms {
+                print("\nBuilding libgit2 for \(platform)...")
+                try buildLibGit2(
+                    context: context, platform: platform, arguments: arguments
+                )
+            }
+            try createLibGit2Framework(with: context, platforms: platforms)
         case "all":
             break
 //            try buildOpenSSL(context: context, arguments: arguments)
@@ -74,4 +87,8 @@ func fakeConfigureURL(_ context: PluginContext) -> URL? {
 
 func fakeMakeURL(_ context: PluginContext) -> URL? {
     useFakeTools ? context.package.directoryURL.appending(path: "fakemake.sh") : nil
+}
+
+func fakeCMakeURL(_ context: PluginContext) -> URL? {
+    useFakeTools ? context.package.directoryURL.appending(path: "fakecmake.sh") : nil
 }

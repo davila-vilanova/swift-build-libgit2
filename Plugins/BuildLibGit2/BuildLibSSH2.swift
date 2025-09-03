@@ -1,19 +1,31 @@
 import Foundation
 import PackagePlugin
 
-func buildLibSSH2(context: PluginContext, arguments: [String]) throws {
+func buildLibSSH2(
+    context: PluginContext,
+    platform: Platform,
+    arguments: [String]
+) throws {
     let fileManager = FileManager.default
 
     // TODO: possibly deduplicate with BuildOpenSSL and BuildLibGit2
-    let libsDir = libSSH2LibsDirectoryURL(for: context)
-    let logFile = context.pluginWorkDirectoryURL.appending(component: "libssh2_build.log")
-    for url in [libsDir, logFile] {
-        if fileManager.fileExists(atPath: url.path) {
+    let libsDir = libSSH2LibsDirectoryURL(for: context, platform: platform)
+    let logFile = context.pluginWorkDirectoryURL.appending(component: "libssh2_build_\(platform.rawValue).log")
+    let buildDir = context.pluginWorkDirectoryURL.appending(component: "libssh2_build_\(platform.rawValue)")
+
+    for url in [libsDir, buildDir, logFile] {
+        if fileManager.fileExists(atPath: url.path()) {
             try fileManager.removeItem(at: url)
         }
     }
-    try fileManager.createDirectory(at: libsDir, withIntermediateDirectories: true)
-    fileManager.createFile(atPath: logFile.path, contents: Data())
+
+    for dir in [libsDir, buildDir] {
+        try fileManager.createDirectory(
+            at: dir, withIntermediateDirectories: true
+        )
+    }
+
+    fileManager.createFile(atPath: logFile.path(), contents: Data())
     print("Will log to \(logFile.path())")
     let logFileHandle = try FileHandle(forUpdating: logFile)
 
@@ -21,34 +33,31 @@ func buildLibSSH2(context: PluginContext, arguments: [String]) throws {
 
     try configureBuild(
         with: context,
-        in: srcDir,
+        in: buildDir,
+        src: srcDir,
         installURL: libsDir,
         loggingTo: logFileHandle,
-        platform: .iPhoneOS,
+        platform: platform,
         architecture: .arm64,
-        sdkInfo: try getSDKInfo(context: context, platform: .iPhoneOS)
+        sdkInfo: try getSDKInfo(context: context, platform: platform)
     )
 
     try buildAndInstall(
         with: context,
-        in: srcDir,
+        in: buildDir,
         loggingTo: logFileHandle
     )
 
     print("libssh2 library can be found at \(libsDir.path())")
-
-//    try createXCFramework(
-//        named: "libssh2",
-//        with: context,
-//        fromLibraryAt: libsDir.appending(component: "lib/libssh2.a"),
-//        headers: libsDir.appending(component: "include"),
-//        placeInto: try packageFrameworksDirectory(for: context),
-//        loggingTo: logFileHandle
-//    )
 }
 
-func libSSH2LibsDirectoryURL(for context: PluginContext) -> URL {
-    context.pluginWorkDirectoryURL.appending(component: "libssh2_libs")
+func libSSH2LibsDirectoryURL(
+    for context: PluginContext,
+    platform: Platform
+) -> URL {
+    context.pluginWorkDirectoryURL.appending(
+        components: "libssh2_libs", libraryDirectoryName(for: platform)
+    )
 }
 
 private func cloneRepository(with context: PluginContext) throws -> URL {
@@ -62,7 +71,8 @@ private func cloneRepository(with context: PluginContext) throws -> URL {
 
 private func configureBuild(
     with context: PluginContext,
-    in srcDir: URL,
+    in buildDir: URL,
+    src srcDir: URL,
     installURL: URL,
     loggingTo logFileHandle: FileHandle,
     platform: Platform,
@@ -72,27 +82,27 @@ private func configureBuild(
     let cmakeTool = try context.tool(named: "cmake")
 
     let cmake = Process()
-    cmake.currentDirectoryURL = srcDir
-    cmake.executableURL = cmakeTool.url
+    cmake.currentDirectoryURL = buildDir
+    cmake.executableURL = fakeCMakeURL(context) ?? cmakeTool.url
 
     let openSSLLibsDir = openSSLLibsDirectoryURL(for: context, platform: platform)
     cmake.arguments = [
-        "-DCMAKE_OSX_SYSROOT=\(sdkInfo.url.path)",
-        "-DCMAKE_SYSTEM_NAME=\(systemName(for: platform))",
-        "-DCMAKE_OSX_ARCHITECTURES:STRING=\"\(architecture.rawValue)\"",
+        "-S", srcDir.path(),
+        "-DCMAKE_OSX_SYSROOT=\(sdkInfo.url.path())",
+        "-DCMAKE_SYSTEM_NAME=\(cmakeSystemName(for: platform))",
+        "-DCMAKE_OSX_ARCHITECTURES:STRING=\(architecture.rawValue)",
         "-DPKG_CONFIG_EXECUTABLE=NO_EXEC",
         "-DCRYPTO_BACKEND=OpenSSL",
-        "-DOPENSSL_INCLUDE_DIR=\(openSSLLibsDir.appending(component: "include").path)",
-        "-DOPENSSL_SSL_LIBRARY=\(openSSLLibsDir.appending(component: "lib").appending(component: "libssl.a").path)",
-        "-DOPENSSL_CRYPTO_LIBRARY=\(openSSLLibsDir.appending(component: "lib").appending(component: "libcrypto.a").path)",
+        "-DOPENSSL_INCLUDE_DIR=\(openSSLLibsDir.appending(component: "include").path())",
+        "-DOPENSSL_SSL_LIBRARY=\(openSSLLibsDir.appending(component: "lib").appending(component: "libssl.a").path())",
+        "-DOPENSSL_CRYPTO_LIBRARY=\(openSSLLibsDir.appending(component: "lib").appending(component: "libcrypto.a").path())",
         "-DCMAKE_C_FLAGS=\"-DOPENSSL_NO_ENGINE -Wno-shorten-64-to-32\"",
         "-DENABLE_ZLIB_COMPRESSION=ON",
         "-DBUILD_SHARED_LIBS=OFF",
-        "-DCMAKE_INSTALL_PREFIX:PATH=\"\(installURL.path)\"",
+        "-DCMAKE_INSTALL_PREFIX:PATH=\(installURL.path())",
         "-DBUILD_EXAMPLES=OFF",
         "-DBUILD_TESTING=OFF",
-        "-DCMAKE_INSTALL_PREFIX=\(installURL.path)",
-        ".",
+        "-B", buildDir.path(),
     ]
 
     cmake.standardOutput = logFileHandle
@@ -107,17 +117,17 @@ private func configureBuild(
 
 private func buildAndInstall(
     with context: PluginContext,
-    in srcDir: URL,
+    in buildDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws {
     let cmakeTool = try context.tool(named: "cmake")
 
     let cmake = Process()
-    cmake.currentDirectoryURL = srcDir
-    cmake.executableURL = cmakeTool.url
+    cmake.currentDirectoryURL = buildDir
+    cmake.executableURL = fakeCMakeURL(context) ?? cmakeTool.url
 
     cmake.arguments = [
-        "--build", srcDir.path,
+        "--build", buildDir.path(),
         "--target", "install",
         "--parallel", "\(getSystemCPUCount())",
     ]
@@ -129,4 +139,32 @@ private func buildAndInstall(
     guard cmake.terminationStatus == 0 else {
         throw PluginError("CMake build failed. See log for details.")
     }
+}
+
+@discardableResult
+func createLibSSH2Framework(
+    with context: PluginContext,
+    platforms: [Platform]
+) throws -> URL {
+    let libLocations = LibraryLocationsByPlatform(
+        uniqueKeysWithValues: platforms.map { platform in
+            let libDir = libSSH2LibsDirectoryURL(
+                for: context,
+                platform: platform
+            )
+            return (
+                platform,  // key
+                LibraryLocations(  // value
+                    binary: libDir.appending(components: "lib", "libssh2.a"),
+                    headers: libDir.appending(component: "include")
+                )
+            )
+        }
+    )
+    return try createXCFramework(
+        named: "libssh2",
+        with: context,
+        fromLibrariesAt: libLocations,
+        placeInto: try packageFrameworksDirectory(for: context)
+    )
 }
