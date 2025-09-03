@@ -12,42 +12,48 @@ func buildOpenSSL(
     let logFile = context.pluginWorkDirectoryURL.appending(
         component: "openssl_build_\(platform.rawValue).log"
     )
+    let buildDir = context.pluginWorkDirectoryURL
+        .appending(component: "openssl_build_\(platform.rawValue)")
 
-    for url in [libsDir, logFile] {
+    for url in [libsDir, buildDir, logFile] {
         if fileManager.fileExists(atPath: url.path()) {
             try fileManager.removeItem(at: url)
         }
     }
-    try fileManager.createDirectory(
-        at: libsDir, withIntermediateDirectories: true
-    )
+
+    for dir in [libsDir, buildDir] {
+        try fileManager.createDirectory(
+            at: dir, withIntermediateDirectories: true
+        )
+    }
+
     fileManager.createFile(atPath: logFile.path(), contents: Data())
     print("Will log to \(logFile.path())")
-
     let logFileHandle = try FileHandle(forUpdating: logFile)
 
     let srcDir = try cloneRepository(with: context)
 
     try cleanBuild(
         with: context,
-        in: srcDir,
+        in: buildDir,
         loggingTo: logFileHandle
-    )
+    )  // TODO possibly I don't need to call this now that I have a dedicated build dir that is deleted and recreated
     try configureBuild(
         with: context,
-        in: srcDir,
+        srcDir: srcDir,
+        buildDir: buildDir,
         for: platform,
         installURL: libsDir,
         loggingTo: logFileHandle
     )
     try runMake(
         with: context,
-        in: srcDir,
+        in: buildDir,
         loggingTo: logFileHandle
     )
     try runMakeInstall(
         with: context,
-        in: srcDir,
+        in: buildDir,
         loggingTo: logFileHandle
     )
 
@@ -74,13 +80,13 @@ private func cloneRepository(with context: PluginContext) throws -> URL {
 
 private func cleanBuild(
     with context: PluginContext,
-    in srcDir: URL,
+    in buildDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws {
     let makeTool = try context.tool(named: "make")
 
     let makeClean = Process()
-    makeClean.currentDirectoryURL = srcDir
+    makeClean.currentDirectoryURL = buildDir
     makeClean.executableURL = fakeMakeURL(context) ?? makeTool.url
     makeClean.arguments = ["clean"]
     makeClean.standardOutput = logFileHandle
@@ -91,7 +97,8 @@ private func cleanBuild(
 
 private func configureBuild(
     with context: PluginContext,
-    in srcDir: URL,
+    srcDir: URL,
+    buildDir: URL,
     for platform: Platform,
     installURL: URL,
     loggingTo logFileHandle: FileHandle,
@@ -99,24 +106,26 @@ private func configureBuild(
     print("Running Configure in \(srcDir.path())...")
 
     let configure = Process()
-    configure.currentDirectoryURL = srcDir
+    configure.currentDirectoryURL = buildDir
     configure.executableURL = fakeConfigureURL(context) ?? srcDir.appending(component: "Configure")
 
     let developerBasePath = try getXcodeDeveloperPath(context: context)
 
-    let platformArgs = switch platform {
-    case .iPhoneOS: ["ios64-xcrun"]
-    case .iPhoneSimulator: ["iossimulator-arm64-xcrun"]
-    }
-    configure.arguments = platformArgs + [
-        "no-shared",
-        "no-dso",
-        "no-apps",
-        "no-docs",
-        "no-ui-console",
-        "zlib",
-        "--prefix=\(installURL.path(percentEncoded: true))",
-    ]
+    let platformArgs =
+        switch platform {
+        case .iPhoneOS: ["ios64-xcrun"]
+        case .iPhoneSimulator: ["iossimulator-arm64-xcrun"]
+        }
+    configure.arguments =
+        platformArgs + [
+            "no-shared",
+            "no-dso",
+            "no-apps",
+            "no-docs",
+            "no-ui-console",
+            "zlib",
+            "--prefix=\(installURL.path(percentEncoded: true))",
+        ]
 
     configure.standardOutput = logFileHandle
     configure.standardError = logFileHandle
@@ -130,7 +139,7 @@ private func configureBuild(
 
 private func runMake(
     with context: PluginContext,
-    in srcDir: URL,
+    in buildDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws {
     print("Running Make...")
@@ -138,7 +147,7 @@ private func runMake(
     let makeTool = try context.tool(named: "make")
 
     let make = Process()
-    make.currentDirectoryURL = srcDir
+    make.currentDirectoryURL = buildDir
     make.executableURL = fakeMakeURL(context) ?? makeTool.url
     make.arguments = [
         "-j", "\(getSystemCPUCount())",
@@ -156,7 +165,7 @@ private func runMake(
 
 private func runMakeInstall(
     with context: PluginContext,
-    in srcDir: URL,
+    in buildDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws {
     print("Running Make Install...")
@@ -164,7 +173,7 @@ private func runMakeInstall(
     let makeTool = try context.tool(named: "make")
 
     let makeInstall = Process()
-    makeInstall.currentDirectoryURL = srcDir
+    makeInstall.currentDirectoryURL = buildDir
     makeInstall.executableURL = fakeMakeURL(context) ?? makeTool.url
     makeInstall.arguments = ["install_sw"]
     makeInstall.standardOutput = logFileHandle
@@ -189,10 +198,10 @@ func createOpenSSLXCFrameworks(
                     for: context, platform: platform
                 )
                 return (
-                    platform, // key
-                    LibraryLocations( // value
+                    platform,  // key
+                    LibraryLocations(  // value
                         binary: libDir.appending(component: "lib/\(libname).a"),
-                        headers: nil // libDir.appending(component: "include")
+                        headers: nil  // libDir.appending(component: "include")
                     )
                 )
             }
