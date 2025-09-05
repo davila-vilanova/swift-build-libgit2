@@ -13,7 +13,7 @@ This is still a work in progress, but it already builds for iOS and the iOS Simu
 ### Add dependency
 
 Add this plugin as a dependency to your `Package.swift`
- 
+
 ```swift
     dependencies: [
         // ...
@@ -27,8 +27,12 @@ From your package directory, execute:
 ```shell
 $ swift package build-libgit2 all all
 ```
+This will download the sources and build the libraries and XCFrameworks for `libssl`, `libcrypto`, `libssh2` and `libgit2`, for all supported platforms and architectures.
 
-This should generate the libraries and XCFrameworks for `libssl`, `libcrypto`, `libssh2` and `libgit2`, for all supported platforms and architectures.
+The currently downloaded and build versions of the libraries are:
+- openssl (libssl and libcrypto): `openssl-3.5.1`
+- libssh: `libssh2-1.11.1`
+- libgit2: `v1.9.1`
 
 ### Add binary targets to your package manifest
 
