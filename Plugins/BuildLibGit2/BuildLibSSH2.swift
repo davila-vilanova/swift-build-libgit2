@@ -10,8 +10,10 @@ func buildLibSSH2(
 
     // TODO: possibly deduplicate with BuildOpenSSL and BuildLibGit2
     let libsDir = libSSH2LibsDirectoryURL(for: context, platform: platform)
-    let logFile = context.pluginWorkDirectoryURL.appending(component: "libssh2_build_\(platform.rawValue).log")
-    let buildDir = context.pluginWorkDirectoryURL.appending(component: "libssh2_build_\(platform.rawValue)")
+    let logFile = context.pluginWorkDirectoryURL
+        .appending(component: "libssh2_build_\(platform.rawValue).log")
+    let buildDir = context.pluginWorkDirectoryURL
+        .appending(component: "libssh2_build_\(platform.rawValue)")
 
     for url in [libsDir, buildDir, logFile] {
         if fileManager.fileExists(atPath: url.path()) {
@@ -146,25 +148,18 @@ func createLibSSH2Framework(
     with context: PluginContext,
     platforms: [Platform]
 ) throws -> URL {
-    let libLocations = LibraryLocationsByPlatform(
-        uniqueKeysWithValues: platforms.map { platform in
-            let libDir = libSSH2LibsDirectoryURL(
-                for: context,
-                platform: platform
-            )
-            return (
-                platform,  // key
-                LibraryLocations(  // value
-                    binary: libDir.appending(components: "lib", "libssh2.a"),
-                    headers: libDir.appending(component: "include")
-                )
-            )
-        }
-    )
+    assert (!platforms.isEmpty)
+    let (binaries, headers) = locationsForPlatforms(
+        platforms,
+        libraryName: "libssh2.a",
+        findLibraryDir: libSSH2LibsDirectoryURL,
+        context: context)
+
     return try createXCFramework(
         named: "libssh2",
         with: context,
-        fromLibrariesAt: libLocations,
+        binaries: binaries,
+        headers: headers,
         placeInto: try packageFrameworksDirectory(for: context)
     )
 }

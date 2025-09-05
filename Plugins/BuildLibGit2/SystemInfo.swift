@@ -53,7 +53,7 @@ private func runToolForOutput(
     process.arguments = arguments
     process.standardOutput = successPipe
 
-    try runProcess(process, stdout: successPipe)
+    try runProcess(process, .stdoutOnly(.pipe(successPipe)))
     return try successPipe.contentsAsString()
 }
 

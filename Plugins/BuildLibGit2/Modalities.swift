@@ -1,3 +1,6 @@
+import Foundation
+import PackagePlugin // TODO: remove once partial
+
 enum Architecture: String {
     case arm64 = "arm64"
 }
@@ -62,4 +65,21 @@ func destinationInFramework(for platform: Platform) -> String {
     case .iPhoneOS: "generic/platform=iOS"
     case .iPhoneSimulator: "generic/platform=iOS Simulator"
     }
+}
+
+func locationsForPlatforms(
+    _ platforms: [Platform],
+    libraryName: String,
+    findLibraryDir: (PluginContext, Platform) -> URL,
+    context: PluginContext
+) -> ([URL], URL) {
+    assert (!platforms.isEmpty)
+
+    let binaries = platforms.map {
+        findLibraryDir(context, $0).appending(components: "lib", "\(libraryName).a")
+    }
+    let headers = findLibraryDir(context, platforms.first!)
+        .appending(component: "include")
+
+    return (binaries, headers)
 }

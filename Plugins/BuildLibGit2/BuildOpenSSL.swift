@@ -6,58 +6,33 @@ func buildOpenSSL(
     platform: Platform,
     arguments: [String]
 ) throws {
-    let fileManager = FileManager.default
-
-    let libsDir = openSSLLibsDirectoryURL(for: context, platform: platform)
-    let logFile = context.pluginWorkDirectoryURL.appending(
-        component: "openssl_build_\(platform.rawValue).log"
+    let (buildURLs, logFileHandle) = try prepareBuild(
+        libraryName: "openssl",
+        getInstallDir: openSSLLibsDirectoryURL,
+        context: context,
+        platform: platform,
+        arguments: arguments,
+        cloneRepository: cloneRepository,
     )
-    let buildDir = context.pluginWorkDirectoryURL
-        .appending(component: "openssl_build_\(platform.rawValue)")
 
-    for url in [libsDir, buildDir, logFile] {
-        if fileManager.fileExists(atPath: url.path()) {
-            try fileManager.removeItem(at: url)
-        }
-    }
-
-    for dir in [libsDir, buildDir] {
-        try fileManager.createDirectory(
-            at: dir, withIntermediateDirectories: true
-        )
-    }
-
-    fileManager.createFile(atPath: logFile.path(), contents: Data())
-    print("Will log to \(logFile.path())")
-    let logFileHandle = try FileHandle(forUpdating: logFile)
-
-    let srcDir = try cloneRepository(with: context)
-
-    try cleanBuild(
-        with: context,
-        in: buildDir,
-        loggingTo: logFileHandle
-    )  // TODO possibly I don't need to call this now that I have a dedicated build dir that is deleted and recreated
     try configureBuild(
         with: context,
-        srcDir: srcDir,
-        buildDir: buildDir,
         for: platform,
-        installURL: libsDir,
-        loggingTo: logFileHandle
+        urls: buildURLs,
+        logFileHandle: logFileHandle
     )
     try runMake(
         with: context,
-        in: buildDir,
+        in: buildURLs.build,
         loggingTo: logFileHandle
     )
     try runMakeInstall(
         with: context,
-        in: buildDir,
+        in: buildURLs.build,
         loggingTo: logFileHandle
     )
 
-    print("OpenSSL libraries for \(platform.rawValue) can be found at \(libsDir.path())")
+    print("OpenSSL libraries for \(platform.rawValue) can be found at \(buildURLs.install.path())")
 }
 
 func openSSLLibsDirectoryURL(
@@ -78,44 +53,27 @@ private func cloneRepository(with context: PluginContext) throws -> URL {
     )
 }
 
-private func cleanBuild(
-    with context: PluginContext,
-    in buildDir: URL,
-    loggingTo logFileHandle: FileHandle
-) throws {
-    let makeTool = try context.tool(named: "make")
-
-    let makeClean = Process()
-    makeClean.currentDirectoryURL = buildDir
-    makeClean.executableURL = fakeMakeURL(context) ?? makeTool.url
-    makeClean.arguments = ["clean"]
-    makeClean.standardOutput = logFileHandle
-    makeClean.standardError = logFileHandle
-    try makeClean.run()
-    makeClean.waitUntilExit()
-}
-
 private func configureBuild(
     with context: PluginContext,
-    srcDir: URL,
-    buildDir: URL,
     for platform: Platform,
-    installURL: URL,
-    loggingTo logFileHandle: FileHandle,
+    urls: BuildURLs,
+    logFileHandle: FileHandle,
 ) throws {
-    print("Running Configure in \(srcDir.path())...")
-
     let configure = Process()
-    configure.currentDirectoryURL = buildDir
-    configure.executableURL = fakeConfigureURL(context) ?? srcDir.appending(component: "Configure")
+    configure.currentDirectoryURL = urls.build
+    configure.executableURL =
+        fakeConfigureURL(context) ?? urls.source.appending(component: "Configure")
 
     let developerBasePath = try getXcodeDeveloperPath(context: context)
+
+    // TODO: support for different archs
 
     let platformArgs =
         switch platform {
         case .iPhoneOS: ["ios64-xcrun"]
         case .iPhoneSimulator: ["iossimulator-arm64-xcrun"]
         }
+
     configure.arguments =
         platformArgs + [
             "no-shared",
@@ -124,17 +82,10 @@ private func configureBuild(
             "no-docs",
             "no-ui-console",
             "zlib",
-            "--prefix=\(installURL.path(percentEncoded: true))",
+            "--prefix=\(urls.install.path(percentEncoded: true))",
         ]
 
-    configure.standardOutput = logFileHandle
-    configure.standardError = logFileHandle
-    try configure.run()
-    configure.waitUntilExit()
-    guard configure.terminationStatus == 0 else {
-        throw PluginError("Configure failed. See log for details.")
-    }
-    print("Configure completed successfully.")
+    try runProcess(configure, .mergeOutputError(.fileHandle(logFileHandle)))
 }
 
 private func runMake(
@@ -142,8 +93,6 @@ private func runMake(
     in buildDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws {
-    print("Running Make...")
-
     let makeTool = try context.tool(named: "make")
 
     let make = Process()
@@ -153,14 +102,7 @@ private func runMake(
         "-j", "\(getSystemCPUCount())",
         "build_libs",
     ]
-    make.standardOutput = logFileHandle
-    make.standardError = logFileHandle
-    try make.run()
-    make.waitUntilExit()
-    guard make.terminationStatus == 0 else {
-        throw PluginError("Make failed. See log for details.")
-    }
-    print("Make completed successfully.")
+    try runProcess(make, .mergeOutputError(.fileHandle(logFileHandle)))
 }
 
 private func runMakeInstall(
@@ -168,22 +110,16 @@ private func runMakeInstall(
     in buildDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws {
-    print("Running Make Install...")
-
     let makeTool = try context.tool(named: "make")
 
     let makeInstall = Process()
     makeInstall.currentDirectoryURL = buildDir
     makeInstall.executableURL = fakeMakeURL(context) ?? makeTool.url
     makeInstall.arguments = ["install_sw"]
-    makeInstall.standardOutput = logFileHandle
-    makeInstall.standardError = logFileHandle
-    try makeInstall.run()
-    makeInstall.waitUntilExit()
-    guard makeInstall.terminationStatus == 0 else {
-        throw PluginError("Make Install failed. See log for details.")
-    }
-    print("Make Install completed successfully.")
+    try runProcess(
+        makeInstall,
+        .mergeOutputError(.fileHandle(logFileHandle)),
+        name: "make install_sw")
 }
 
 @discardableResult
@@ -192,25 +128,20 @@ func createOpenSSLXCFrameworks(
     platforms: [Platform]
 ) throws -> [URL] {
     try ["libssl", "libcrypto"].map { libname in
-        let libDirsByPlatform = LibraryLocationsByPlatform(
-            uniqueKeysWithValues: platforms.map { platform in
-                let libDir = openSSLLibsDirectoryURL(
-                    for: context, platform: platform
-                )
-                return (
-                    platform,  // key
-                    LibraryLocations(  // value
-                        binary: libDir.appending(component: "lib/\(libname).a"),
-                        headers: nil  // libDir.appending(component: "include")
-                    )
-                )
-            }
-        )
+        let (binaries, headers) = locationsForPlatforms(
+            platforms,
+            libraryName: libname,
+            findLibraryDir: openSSLLibsDirectoryURL,
+            context: context)
+
         return try createXCFramework(
             named: libname,
             with: context,
-            fromLibrariesAt: libDirsByPlatform,
+            binaries: binaries,
+            headers: headers,
             placeInto: try packageFrameworksDirectory(for: context),
         )
     }
 }
+
+

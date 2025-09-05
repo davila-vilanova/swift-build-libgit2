@@ -8,6 +8,7 @@ import PackagePlugin
 //     case all
 // }
 
+// TODO: decide on closing parenthesis style
 @main
 struct Command: CommandPlugin {
     func performCommand(context: PluginContext, arguments: [String]) throws {

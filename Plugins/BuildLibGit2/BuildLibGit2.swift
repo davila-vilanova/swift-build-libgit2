@@ -154,29 +154,22 @@ func createLibGit2Framework(
     with context: PluginContext,
     platforms: [Platform]
 ) throws -> URL {
-    let libLocations = LibraryLocationsByPlatform(
-        uniqueKeysWithValues: platforms.map { platform in
-            let libDir = libGit2LibsDirectoryURL(
-                for: context,
-                platform: platform
-            )
-            return (
-                platform,  // key
-                LibraryLocations(  // value
-                    binary: libDir.appending(components: "lib", "libgit2.a"),
-                    headers: libDir.appending(component: "include")
-                                )
-            )
-        }
-    )
+    assert (!platforms.isEmpty)
+    let (binaries, headers) = locationsForPlatforms(
+        platforms,
+        libraryName: "libgit2.a",
+        findLibraryDir: libGit2LibsDirectoryURL,
+        context: context)
+
     let frameworkURL = try createXCFramework(
         named: "libgit2",
         with: context,
-        fromLibrariesAt: libLocations,
+        binaries: binaries,
+        headers: headers,
         placeInto: try packageFrameworksDirectory(for: context)
     )
 
-    for platform in libLocations.keys {
+    for platform in platforms {
         try writeModuleMap(
             inFrameworkAt: frameworkURL, platform: platform, architecture: .arm64
         )

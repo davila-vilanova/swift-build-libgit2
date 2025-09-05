@@ -5,7 +5,8 @@ import PackagePlugin
 func createXCFramework(
     named frameworkName: String,
     with context: PluginContext,
-    fromLibrariesAt libLocations: LibraryLocationsByPlatform,
+    binaries: [URL],
+    headers: URL,
     placeInto frameworksDir: URL,
 ) throws -> URL {
     let xcodebuildTool = try context.tool(named: "xcodebuild")
@@ -16,36 +17,47 @@ func createXCFramework(
     }
 
     let frameworkPath = frameworkURL.path()
-    print(" Creating \(frameworkURL.path())\nfrom libraries at \(libLocations)")
+    print("Creating \(frameworkURL.path())\nfrom binaries at \(binaries)")
 
     let xcodebuild = Process()
     xcodebuild.executableURL = fakeXcodeBuildURL(context) ?? xcodebuildTool.url
     xcodebuild.arguments =
         ["-create-xcframework"]
-        + libLocations.flatMap { (platform, locations) in
-            [
-                "-library", locations.binary.path(),
-//                "-headers", locations.headers.path(),
-            ] + {
-                if let headers = locations.headers {
-                    ["-headers", headers.path(),]
-                } else {
-                    []
-                }
-            }()
-        }
+        + libraryArguments(binaries: binaries, headers: headers)
         + ["-output", frameworkPath]
 
-    try xcodebuild.run()
-    xcodebuild.waitUntilExit()
-    guard xcodebuild.terminationStatus == 0 else {
-        throw PluginError(
-            "Failed to create \(frameworkURL.path())."
-        )
-    }
-    print("Successfully created \(frameworkURL.path())")
+    try runProcess(xcodebuild, .noOutput())
+
     return frameworkURL
 }
+
+
+/// Takes
+/// - an array of URLs, each pointing to a library binary for a different platform (or architecture?)
+/// - a URL pointing to the headers directory for the library
+///
+/// Returns a list of arguments like
+/// ```[
+///    "-library",
+///    "products/iOS/usr/local/lib/libMyLibrary.a",
+///    "-headers",
+///    "products/iOS/usr/local/include",
+///    "-library",
+///    "products/iOS_Simulator/usr/local/lib/libMyLibrary.a",
+///    "-headers",
+///    "products/iOS/usr/local/include"
+/// ]```
+func libraryArguments(binaries: [URL], headers: URL) -> [String] {
+    binaries.flatMap { binary in
+        [
+            "-library",
+            binary.path(),
+            "-headers",
+            headers.path(),
+        ]
+    }
+}
+
 
 func packageFrameworksDirectory(
     for context: PluginContext
@@ -59,10 +71,3 @@ func packageFrameworksDirectory(
     }
     return frameworksDir
 }
-
-struct LibraryLocations {
-    let binary: URL
-    let headers: URL?
-}
-
-typealias LibraryLocationsByPlatform = [Platform: LibraryLocations]

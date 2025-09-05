@@ -34,7 +34,7 @@ func cloneRepository(
         localURL.path,
     ]
 
-    try runProcess(gitClone)
+    try runProcess(gitClone, .noOutput())
 
     print("Successfully cloned repository.")
     return localURL
