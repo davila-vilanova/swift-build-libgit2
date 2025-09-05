@@ -1,13 +1,6 @@
 import Foundation
 import PackagePlugin
 
-// enum Library: String, CaseIterable, ExpressibleByArgument {
-//     case openssl
-//     case libssh2
-//     case libgit2
-//     case all
-// }
-
 // TODO: decide on closing parenthesis style
 @main
 struct Command: CommandPlugin {
@@ -17,14 +10,14 @@ struct Command: CommandPlugin {
         guard let libraryArgument = arguments.first else {
             throw PluginError("Which library to build?")
         }
+        let libraries = try libraries(from: libraryArgument)
 
         guard let platformArgument = arguments[safe: 1] else {
             throw PluginError("Which platform to build for?")
         }
         let platforms = try platforms(from: platformArgument)
 
-        switch libraryArgument {
-        case "openssl":
+        if libraries.contains(.openssl) {
             for platform in platforms {
                 print("\nBuilding OpenSSL for \(platform)...")
                 try buildOpenSSL(
@@ -32,7 +25,9 @@ struct Command: CommandPlugin {
                 )
             }
             try createOpenSSLXCFrameworks(with: context, platforms: platforms)
-        case "libssh2":
+        }
+
+        if libraries.contains(.libssh2) {
             for platform in platforms {
                 print("\nBuilding libssh2 for \(platform)...")
                 try buildLibSSH2(
@@ -40,7 +35,9 @@ struct Command: CommandPlugin {
                 )
             }
             try createLibSSH2Framework(with: context, platforms: platforms)
-        case "libgit2":
+        }
+
+        if libraries.contains(.libgit2) {
             for platform in platforms {
                 print("\nBuilding libgit2 for \(platform)...")
                 try buildLibGit2(
@@ -48,13 +45,6 @@ struct Command: CommandPlugin {
                 )
             }
             try createLibGit2Framework(with: context, platforms: platforms)
-        case "all":
-            break
-//            try buildOpenSSL(context: context, arguments: arguments)
-//            try buildLibSSH2(context: context, arguments: arguments)
-//            try buildLibGit2(context: context, arguments: arguments)
-        default:
-            throw PluginError("Unknown library: \(libraryArgument).")
         }
     }
 }
@@ -69,10 +59,27 @@ private func platforms(from argument: String) throws -> [Platform] {
     return [platform]
 }
 
+private func libraries(from argument: String) throws -> Set<Library> {
+    if argument == "all" {
+        return Set(Library.allCases)
+    }
+    guard let library = Library(rawValue: argument) else {
+        throw PluginError("\(argument) is not a valid library.")
+    }
+    return [library]
+}
+
 extension Array {
     subscript(safe index: Int) -> Element? {
         return indices.contains(index) ? self[index] : nil
     }
+}
+
+enum Library: String, CaseIterable, Equatable {
+    case openssl
+    case libssh2
+    case libgit2
+    case all
 }
 
 // For debugging
