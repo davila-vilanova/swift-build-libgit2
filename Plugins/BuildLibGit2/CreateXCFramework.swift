@@ -31,6 +31,28 @@ func createXCFramework(
     return frameworkURL
 }
 
+func createXCFramework(
+    name: String,
+    findLibraryDir: (PluginContext, Platform) -> URL,
+    context: PluginContext,
+    platforms: [Platform]
+) throws ->  URL {
+    assert (!platforms.isEmpty)
+
+    let (binaries, headers) = locationsForPlatforms(
+        platforms,
+        libraryName: name,
+        findLibraryDir: findLibraryDir,
+        context: context)
+
+    return try createXCFramework(
+        named: name,
+        with: context,
+        binaries: binaries,
+        headers: headers,
+        placeInto: try packageFrameworksDirectory(for: context)
+    )
+}
 
 /// Takes
 /// - an array of URLs, each pointing to a library binary for a different platform (or architecture?)

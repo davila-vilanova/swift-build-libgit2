@@ -118,18 +118,9 @@ func createLibSSH2Framework(
     with context: PluginContext,
     platforms: [Platform]
 ) throws -> URL {
-    assert (!platforms.isEmpty)
-    let (binaries, headers) = locationsForPlatforms(
-        platforms,
-        libraryName: "libssh2",
+    try createXCFramework(
+        name: "libssh2",
         findLibraryDir: libSSH2LibsDirectoryURL,
-        context: context)
-
-    return try createXCFramework(
-        named: "libssh2",
-        with: context,
-        binaries: binaries,
-        headers: headers,
-        placeInto: try packageFrameworksDirectory(for: context)
-    )
+        context: context,
+        platforms: platforms)
 }

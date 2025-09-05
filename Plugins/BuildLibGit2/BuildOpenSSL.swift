@@ -128,19 +128,11 @@ func createOpenSSLXCFrameworks(
     platforms: [Platform]
 ) throws -> [URL] {
     try ["libssl", "libcrypto"].map { libname in
-        let (binaries, headers) = locationsForPlatforms(
-            platforms,
-            libraryName: libname,
+        try createXCFramework(
+            name: libname,
             findLibraryDir: openSSLLibsDirectoryURL,
-            context: context)
-
-        return try createXCFramework(
-            named: libname,
-            with: context,
-            binaries: binaries,
-            headers: headers,
-            placeInto: try packageFrameworksDirectory(for: context),
-        )
+            context: context,
+            platforms: platforms)
     }
 }
 
