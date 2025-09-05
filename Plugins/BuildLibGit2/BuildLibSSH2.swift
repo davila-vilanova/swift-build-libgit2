@@ -6,38 +6,18 @@ func buildLibSSH2(
     platform: Platform,
     arguments: [String]
 ) throws {
-    let fileManager = FileManager.default
-
-    // TODO: possibly deduplicate with BuildOpenSSL and BuildLibGit2
-    let libsDir = libSSH2LibsDirectoryURL(for: context, platform: platform)
-    let logFile = context.pluginWorkDirectoryURL
-        .appending(component: "libssh2_build_\(platform.rawValue).log")
-    let buildDir = context.pluginWorkDirectoryURL
-        .appending(component: "libssh2_build_\(platform.rawValue)")
-
-    for url in [libsDir, buildDir, logFile] {
-        if fileManager.fileExists(atPath: url.path()) {
-            try fileManager.removeItem(at: url)
-        }
-    }
-
-    for dir in [libsDir, buildDir] {
-        try fileManager.createDirectory(
-            at: dir, withIntermediateDirectories: true
-        )
-    }
-
-    fileManager.createFile(atPath: logFile.path(), contents: Data())
-    print("Will log to \(logFile.path())")
-    let logFileHandle = try FileHandle(forUpdating: logFile)
-
-    let srcDir = try cloneRepository(with: context)
+    let (buildURLs, logFileHandle) = try prepareBuild(
+        libraryName: "libssh2",
+        getInstallDir: libSSH2LibsDirectoryURL,
+        context: context,
+        platform: platform,
+        arguments: arguments,
+        cloneRepository: cloneRepository,
+    )
 
     try configureBuild(
         with: context,
-        in: buildDir,
-        src: srcDir,
-        installURL: libsDir,
+        urls: buildURLs,
         loggingTo: logFileHandle,
         platform: platform,
         architecture: .arm64,
@@ -46,11 +26,11 @@ func buildLibSSH2(
 
     try buildAndInstall(
         with: context,
-        in: buildDir,
+        in: buildURLs.build,
         loggingTo: logFileHandle
     )
 
-    print("libssh2 library can be found at \(libsDir.path())")
+    print("libssh2 library can be found at \(buildURLs.install.path())")
 }
 
 func libSSH2LibsDirectoryURL(
@@ -73,9 +53,7 @@ private func cloneRepository(with context: PluginContext) throws -> URL {
 
 private func configureBuild(
     with context: PluginContext,
-    in buildDir: URL,
-    src srcDir: URL,
-    installURL: URL,
+    urls: BuildURLs,
     loggingTo logFileHandle: FileHandle,
     platform: Platform,
     architecture: Architecture,
@@ -84,12 +62,13 @@ private func configureBuild(
     let cmakeTool = try context.tool(named: "cmake")
 
     let cmake = Process()
-    cmake.currentDirectoryURL = buildDir
+    cmake.currentDirectoryURL = urls.build
     cmake.executableURL = fakeCMakeURL(context) ?? cmakeTool.url
 
     let openSSLLibsDir = openSSLLibsDirectoryURL(for: context, platform: platform)
+
     cmake.arguments = [
-        "-S", srcDir.path(),
+        "-S", urls.source.path(),
         "-DCMAKE_OSX_SYSROOT=\(sdkInfo.url.path())",
         "-DCMAKE_SYSTEM_NAME=\(cmakeSystemName(for: platform))",
         "-DCMAKE_OSX_ARCHITECTURES:STRING=\(architecture.rawValue)",
@@ -101,20 +80,15 @@ private func configureBuild(
         "-DCMAKE_C_FLAGS=\"-DOPENSSL_NO_ENGINE -Wno-shorten-64-to-32\"",
         "-DENABLE_ZLIB_COMPRESSION=ON",
         "-DBUILD_SHARED_LIBS=OFF",
-        "-DCMAKE_INSTALL_PREFIX:PATH=\(installURL.path())",
+        "-DCMAKE_INSTALL_PREFIX:PATH=\(urls.install.path())",
         "-DBUILD_EXAMPLES=OFF",
         "-DBUILD_TESTING=OFF",
-        "-B", buildDir.path(),
+        "-B", urls.build.path(),
     ]
 
-    cmake.standardOutput = logFileHandle
-    cmake.standardError = logFileHandle
-    try cmake.run()
-    cmake.waitUntilExit()
-    guard cmake.terminationStatus == 0 else {
-        throw PluginError("CMake configuration failed. See log for details.")
-    }
-    print("CMake configuration completed successfully.")
+    try runProcess(
+        cmake, .mergeOutputError(.fileHandle(logFileHandle)), name: "CMake configuration"
+    )
 }
 
 private func buildAndInstall(
@@ -134,13 +108,9 @@ private func buildAndInstall(
         "--parallel", "\(getSystemCPUCount())",
     ]
 
-    cmake.standardOutput = logFileHandle
-    cmake.standardError = logFileHandle
-    try cmake.run()
-    cmake.waitUntilExit()
-    guard cmake.terminationStatus == 0 else {
-        throw PluginError("CMake build failed. See log for details.")
-    }
+    try runProcess(
+        cmake, .mergeOutputError(.fileHandle(logFileHandle)), name: "CMake build"
+    )
 }
 
 @discardableResult
@@ -151,7 +121,7 @@ func createLibSSH2Framework(
     assert (!platforms.isEmpty)
     let (binaries, headers) = locationsForPlatforms(
         platforms,
-        libraryName: "libssh2.a",
+        libraryName: "libssh2",
         findLibraryDir: libSSH2LibsDirectoryURL,
         context: context)
 

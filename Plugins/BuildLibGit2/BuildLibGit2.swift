@@ -8,32 +8,19 @@ func buildLibGit2(
 ) throws {
     let architecture = Architecture.arm64
 
-    let fileManager = FileManager.default
-    let libsDir = libGit2LibsDirectoryURL(for: context, platform: platform)
-    let logFile = context.pluginWorkDirectoryURL.appending(component: "libgit2_build_\(platform.rawValue).log")
-    let buildDir = context.pluginWorkDirectoryURL.appending(component: "libgit2_build_\(platform.rawValue)_\(architecture.rawValue)")
+    let (buildURLs, logFileHandle) = try prepareBuild(
+        libraryName: "libgit2",
+        getInstallDir: libGit2LibsDirectoryURL,
+        context: context,
+        platform: platform,
+        arguments: arguments,
+        cloneRepository: cloneRepository,
+    )
 
-    for url in [libsDir, buildDir, logFile] {
-        if fileManager.fileExists(atPath: url.path()) {
-            try fileManager.removeItem(at: url)
-        }
-    }
-
-    for dir in [libsDir, buildDir] {
-        try fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
-    }
-
-    fileManager.createFile(atPath: logFile.path(), contents: Data())
-    print("Will log to \(logFile.path())")
-    let logFileHandle = try FileHandle(forUpdating: logFile)
-
-    let srcDir = try cloneRepository(with: context)
 
     try configureBuild(
         with: context,
-        in: buildDir,
-        src: srcDir,
-        installURL: libsDir,
+        urls: buildURLs,
         loggingTo: logFileHandle,
         platform: platform,
         architecture: architecture,
@@ -42,7 +29,7 @@ func buildLibGit2(
 
     try buildAndInstall(
         with: context,
-        in: buildDir,
+        in: buildURLs.build,
         loggingTo: logFileHandle
     )
 }
@@ -67,24 +54,23 @@ private func cloneRepository(with context: PluginContext) throws -> URL {
 
 private func configureBuild(
     with context: PluginContext,
-    in buildDir: URL,
-    src srcDir: URL,
-    installURL: URL,
+    urls: BuildURLs,
     loggingTo logFileHandle: FileHandle,
     platform: Platform,
     architecture: Architecture,
     sdkInfo: SDKInfo
 ) throws {
     let cmakeTool = try context.tool(named: "cmake")
+
     let cmake = Process()
-    cmake.currentDirectoryURL = buildDir
+    cmake.currentDirectoryURL = urls.build
     cmake.executableURL = fakeCMakeURL(context) ?? cmakeTool.url
 
     let libSSH2LibsDir = libSSH2LibsDirectoryURL(for: context, platform: platform)
     let openSSLLibsDir = openSSLLibsDirectoryURL(for: context, platform: platform)
 
     cmake.arguments = [
-        "-S", srcDir.path(),
+        "-S", urls.source.path(),
         "-DCMAKE_OSX_SYSROOT=\(sdkInfo.url.path())",
         "-DCMAKE_SYSTEM_NAME=\(cmakeSystemName(for: platform))",
         "-DCMAKE_OSX_ARCHITECTURES:STRING=\(architecture.rawValue)",
@@ -101,25 +87,20 @@ private func configureBuild(
         "-DOPENSSL_SSL_LIBRARY=\(openSSLLibsDir.appending(component: "lib").appending(component: "libssl.a").path())",
         "-DOPENSSL_CRYPTO_LIBRARY=\(openSSLLibsDir.appending(component: "lib").appending(component: "libcrypto.a").path())",
         "-DBUILD_SHARED_LIBS:BOOL=OFF",
-        "-DCMAKE_INSTALL_PREFIX:PATH=\(installURL.path())",
+        "-DCMAKE_INSTALL_PREFIX:PATH=\(urls.install.path())",
         "-DBUILD_TESTS=OFF",
         "-DBUILD_CLI=OFF",
         "-DBUILD_EXAMPLES=OFF",
         "-DBUILD_FUZZERS=OFF",
-        "-B", buildDir.path(),
+        "-B", urls.build.path(),
     ]
     // cmake.environment = [
     //     "OPENSSL_ROOT_DIR": openSSLLibsDir.path()
     // ]
 
-    cmake.standardOutput = logFileHandle
-    cmake.standardError = logFileHandle
-    try cmake.run()
-    cmake.waitUntilExit()
-    guard cmake.terminationStatus == 0 else {
-        throw PluginError("CMake configuration failed. See log for details.")
-    }
-    print("CMake configuration completed successfully.")
+    try runProcess(
+        cmake, .mergeOutputError(.fileHandle(logFileHandle)), name: "CMake configuration"
+    )
 }
 
 private func buildAndInstall(
@@ -138,15 +119,10 @@ private func buildAndInstall(
         "--target", "install",
         "--parallel", "\(getSystemCPUCount())",
     ]
-    print("cmake command: \ncmake \(cmake.arguments!.joined(separator: " "))")
 
-    cmake.standardOutput = logFileHandle
-    cmake.standardError = logFileHandle
-    try cmake.run()
-    cmake.waitUntilExit()
-    guard cmake.terminationStatus == 0 else {
-        throw PluginError("CMake build failed. See log for details.")
-    }
+    try runProcess(
+        cmake, .mergeOutputError(.fileHandle(logFileHandle)), name: "CMake build"
+    )
 }
 
 @discardableResult
@@ -157,7 +133,7 @@ func createLibGit2Framework(
     assert (!platforms.isEmpty)
     let (binaries, headers) = locationsForPlatforms(
         platforms,
-        libraryName: "libgit2.a",
+        libraryName: "libgit2",
         findLibraryDir: libGit2LibsDirectoryURL,
         context: context)
 

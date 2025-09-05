@@ -19,7 +19,7 @@ func buildOpenSSL(
         with: context,
         for: platform,
         urls: buildURLs,
-        logFileHandle: logFileHandle
+        loggingTo: logFileHandle
     )
     try runMake(
         with: context,
@@ -57,7 +57,7 @@ private func configureBuild(
     with context: PluginContext,
     for platform: Platform,
     urls: BuildURLs,
-    logFileHandle: FileHandle,
+    loggingTo logFileHandle: FileHandle,
 ) throws {
     let configure = Process()
     configure.currentDirectoryURL = urls.build

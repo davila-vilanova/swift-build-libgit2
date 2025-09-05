@@ -22,14 +22,13 @@ func runProcess(
     process.waitUntilExit()
 
     if process.terminationStatus != 0 {
-
         let errorMessage = if let tempErrorPipe = outputMode.tempErrorPipe {
             String(data: tempErrorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "Unknown error"
         } else {
-            "See output for details."
+            "See output for details"
         }
 
-        throw PluginError("Failed to run \(processName): \(errorMessage)")
+        throw PluginError("Failed to run \(processName): \(errorMessage).")
     }
 
     print("\(processName) completed successfully.")
@@ -41,7 +40,6 @@ enum OutputMode {
     case mergeOutputError(OutputChannel)
     case stdoutOnly(output: OutputChannel, tempError: Pipe)
     case noOutput(tempError: Pipe)
-
 
     static func stdoutOnly(_ output: OutputChannel) -> OutputMode {
         .stdoutOnly(output: output, tempError: Pipe())
