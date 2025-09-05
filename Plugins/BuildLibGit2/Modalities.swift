@@ -8,14 +8,14 @@ enum Architecture: String {
 enum Platform: String, CaseIterable {
     case iPhoneOS
     case iPhoneSimulator
+    case macOS
 }
 
-// TODO: Check what remains used at the end
-
-func platformDirectoryName(for platform: Platform) -> String {
+func sdkName(for platform: Platform) -> String {
     switch platform {
-    case .iPhoneOS: "iPhoneOS.platform"
-    case .iPhoneSimulator: "iPhoneSimulator.platform"
+    case .iPhoneOS: "iphoneos"
+    case .iPhoneSimulator: "iphonesimulator"
+    case .macOS: "macosx"
     }
 }
 
@@ -27,6 +27,7 @@ func cmakeSystemName(for platform: Platform) -> String {
     switch platform {
     case .iPhoneOS: "iOS"
     case .iPhoneSimulator: "iOS"
+    case .macOS: "Darwin"
     }
 }
 
@@ -35,6 +36,7 @@ func frameworkDirectoryName(for platform: Platform, architecture: Architecture) 
         switch platform {
         case .iPhoneOS: "ios"
         case .iPhoneSimulator: "ios"
+        case .macOS: "macos"
         }
 
     let archSection =
@@ -46,25 +48,12 @@ func frameworkDirectoryName(for platform: Platform, architecture: Architecture) 
         switch platform {
         case .iPhoneOS: ""
         case .iPhoneSimulator: "simulator"
+        case .macOS: ""
         }
 
     return [platformSection, archSection, simulatorSection]
         .filter { !$0.isEmpty }
         .joined(separator: "-")
-}
-
-func sdkName(for platform: Platform) -> String {
-    switch platform {
-    case .iPhoneOS: "iPhoneOS.sdk"
-    case .iPhoneSimulator: "iPhoneSimulator.sdk"
-    }
-}
-
-func destinationInFramework(for platform: Platform) -> String {
-    switch platform {
-    case .iPhoneOS: "generic/platform=iOS"
-    case .iPhoneSimulator: "generic/platform=iOS Simulator"
-    }
 }
 
 func locationsForPlatforms(

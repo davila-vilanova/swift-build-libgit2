@@ -5,10 +5,6 @@ func getSystemCPUCount() -> Int {
     return ProcessInfo.processInfo.processorCount
 }
 
-func getXcodeDeveloperPath(context: PluginContext) throws -> String {
-    try runToolForOutput(tool: "xcode-select", arguments: ["--print-path"], context: context)
-}
-
 struct SDKInfo {
     let version: String
     let url: URL
@@ -17,8 +13,7 @@ struct SDKInfo {
 func getSDKInfo(context: PluginContext, platform: Platform) throws -> SDKInfo {
     let xcodebuildOutput = try runToolForOutput(
         tool: "xcodebuild",
-        arguments: ["-version", "-sdk", platform.rawValue.lowercased()],
-        // TODO: Use dedicated function to produce SDK name from platform, so that case names can change without breaking this.
+        arguments: ["-version", "-sdk", sdkName(for: platform)],
         context: context
     )
     .split(separator: "\n")

@@ -64,14 +64,21 @@ private func configureBuild(
     configure.executableURL =
         fakeConfigureURL(context) ?? urls.source.appending(component: "Configure")
 
-    let developerBasePath = try getXcodeDeveloperPath(context: context)
-
     // TODO: support for different archs
+    // supported:
+    // ios64-xcrun
+    // iossimulator-arm64-xcrun
+    // darwin64-arm64
+    //
+    // missing:
+    // iossimulator-x86_64-xcrun
+    // darwin64-x86_64
 
     let platformArgs =
         switch platform {
         case .iPhoneOS: ["ios64-xcrun"]
         case .iPhoneSimulator: ["iossimulator-arm64-xcrun"]
+        case .macOS: ["darwin64-arm64"]
         }
 
     configure.arguments =
