@@ -1,14 +1,28 @@
 import Foundation
 import PackagePlugin // TODO: remove once partial
 
-enum Architecture: String {
-    case arm64 = "arm64"
-}
-
 enum Platform: String, CaseIterable {
     case iPhoneOS
     case iPhoneSimulator
     case macOS
+}
+
+enum Architecture: String, CaseIterable {
+    case arm64
+    case x86_64
+
+    static func allCompatibleCombinations(with platforms: [Platform]) -> [(Platform, Architecture)] {
+        platforms.flatMap { platform in
+            Architecture.allCases.map { architecture in
+                (platform, architecture)
+            }
+        }.filter(areCompatible)
+    }
+
+    // TODO: rename to allArchitecturesCompatible(with:)
+    static func allCompatibleArchitectures(with platform: Platform) -> [Architecture] {
+        Architecture.allCases.filter { areCompatible(platform: platform, architecture: $0) }
+    }
 }
 
 func sdkName(for platform: Platform) -> String {
@@ -31,6 +45,41 @@ func cmakeSystemName(for platform: Platform) -> String {
     }
 }
 
+private func cmakeArchitectureName(for architecture: Architecture) -> String {
+    switch architecture {
+    case .arm64: "arm64"
+    case .x86_64: "x86_64"
+    }
+}
+
+func cmakeArchitecturesValue(for architectures: [Architecture]) -> String {
+    architectures.map(cmakeArchitectureName(for:)).joined(separator: ";")
+}
+
+
+func areCompatible(platform: Platform, architecture: Architecture) -> Bool {
+    switch platform {
+    case .iPhoneOS:
+        return architecture == .arm64
+    case .iPhoneSimulator, .macOS:
+        return Set([Architecture.arm64, .x86_64]).contains(architecture)
+    }
+}
+
+
+func allCompatiblePlatformsArchitectures() -> [(Platform, Architecture)] {
+    Platform.allCases.flatMap { platform in
+        Architecture.allCases.map { architecture in
+            (platform, architecture)
+        }
+    }.filter(areCompatible)
+}
+
+struct IncompatiblePlatformArchitectureError: Error {
+    let platform: Platform
+    let architecture: Architecture
+}
+
 func frameworkDirectoryName(for platform: Platform, architecture: Architecture) -> String {
     let platformSection =
         switch platform {
@@ -42,6 +91,7 @@ func frameworkDirectoryName(for platform: Platform, architecture: Architecture) 
     let archSection =
         switch architecture {
         case .arm64: "arm64"
+        case .x86_64: "x86_64"
         }
 
     let simulatorSection =

@@ -4,6 +4,7 @@ import PackagePlugin
 func buildLibSSH2(
     context: PluginContext,
     platform: Platform,
+    architectures: [Architecture],
     arguments: [String]
 ) throws {
     let (buildURLs, logFileHandle) = try prepareBuild(
@@ -20,7 +21,7 @@ func buildLibSSH2(
         urls: buildURLs,
         loggingTo: logFileHandle,
         platform: platform,
-        architecture: .arm64,
+        architectures: architectures,
         sdkInfo: try getSDKInfo(context: context, platform: platform)
     )
 
@@ -56,7 +57,7 @@ private func configureBuild(
     urls: BuildURLs,
     loggingTo logFileHandle: FileHandle,
     platform: Platform,
-    architecture: Architecture,
+    architectures: [Architecture],
     sdkInfo: SDKInfo
 ) throws {
     let cmakeTool = try context.tool(named: "cmake")
@@ -71,7 +72,7 @@ private func configureBuild(
         "-S", urls.source.path(),
         "-DCMAKE_OSX_SYSROOT=\(sdkInfo.url.path())",
         "-DCMAKE_SYSTEM_NAME=\(cmakeSystemName(for: platform))",
-        "-DCMAKE_OSX_ARCHITECTURES:STRING=\(architecture.rawValue)",
+        "-DCMAKE_OSX_ARCHITECTURES:STRING=\(cmakeArchitecturesValue(for: architectures))",
         "-DPKG_CONFIG_EXECUTABLE=NO_EXEC",
         "-DCRYPTO_BACKEND=OpenSSL",
         "-DOPENSSL_INCLUDE_DIR=\(openSSLLibsDir.appending(component: "include").path())",

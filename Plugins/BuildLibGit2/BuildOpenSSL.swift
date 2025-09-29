@@ -4,6 +4,7 @@ import PackagePlugin
 func buildOpenSSL(
     context: PluginContext,
     platform: Platform,
+    architecture: Architecture,
     arguments: [String]
 ) throws {
     let (buildURLs, logFileHandle) = try prepareBuild(
@@ -18,6 +19,7 @@ func buildOpenSSL(
     try configureBuild(
         with: context,
         for: platform,
+        architecture: architecture,
         urls: buildURLs,
         loggingTo: logFileHandle
     )
@@ -32,7 +34,8 @@ func buildOpenSSL(
         loggingTo: logFileHandle
     )
 
-    print("OpenSSL libraries for \(platform.rawValue) can be found at \(buildURLs.install.path())")
+    print("OpenSSL libraries for \(platform.rawValue) and \(architecture.rawValue)" +
+          "can be found at \(buildURLs.install.path())")
 }
 
 func openSSLLibsDirectoryURL(
@@ -56,6 +59,7 @@ private func cloneRepository(with context: PluginContext) throws -> URL {
 private func configureBuild(
     with context: PluginContext,
     for platform: Platform,
+    architecture: Architecture,
     urls: BuildURLs,
     loggingTo logFileHandle: FileHandle,
 ) throws {
@@ -64,25 +68,8 @@ private func configureBuild(
     configure.executableURL =
         fakeConfigureURL(context) ?? urls.source.appending(component: "Configure")
 
-    // TODO: support for different archs
-    // supported:
-    // ios64-xcrun
-    // iossimulator-arm64-xcrun
-    // darwin64-arm64
-    //
-    // missing:
-    // iossimulator-x86_64-xcrun
-    // darwin64-x86_64
-
-    let platformArgs =
-        switch platform {
-        case .iPhoneOS: ["ios64-xcrun"]
-        case .iPhoneSimulator: ["iossimulator-arm64-xcrun"]
-        case .macOS: ["darwin64-arm64"]
-        }
-
     configure.arguments =
-        platformArgs + [
+        [try targetName(for: platform, architecture: architecture)] + [
             "no-shared",
             "no-dso",
             "no-apps",
@@ -93,6 +80,19 @@ private func configureBuild(
         ]
 
     try runProcess(configure, .mergeOutputError(.fileHandle(logFileHandle)))
+}
+
+
+private func targetName(for platform: Platform, architecture: Architecture) throws -> String {
+    switch (platform, architecture) { // TODO: is this syntax idiomatic?
+    case (.iPhoneOS, .arm64): "ios64-xcrun"
+    case (.iPhoneOS, .x86_64): throw IncompatiblePlatformArchitectureError(
+        platform: platform, architecture: architecture)
+    case (.iPhoneSimulator, .arm64): "iossimulator-arm64-xcrun"
+    case (.iPhoneSimulator, .x86_64): "iossimulator-x86_64-xcrun"
+    case (.macOS, .arm64): "darwin64-arm64"
+    case (.macOS, .x86_64): "darwin64-x86_64"
+    }
 }
 
 private func runMake(

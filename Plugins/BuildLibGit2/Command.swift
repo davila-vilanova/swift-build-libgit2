@@ -15,33 +15,54 @@ struct Command: CommandPlugin {
         guard let platformArgument = arguments[safe: 1] else {
             throw PluginError("Which platform to build for?")
         }
+        guard let architectureArgument = arguments[safe: 2] else {
+            throw PluginError("Which architecture to build for?")
+        }
+
         let platforms = try platforms(from: platformArgument)
+        let modalities = try buildModalities(from: architectureArgument, platforms: platforms)
 
         if libraries.contains(.openssl) {
             for platform in platforms {
-                print("\nBuilding OpenSSL for \(platform)...")
-                try buildOpenSSL(
-                    context: context, platform: platform, arguments: arguments
-                )
+                let architectures = try architectures(from: architectureArgument, for: platform)
+                for architecture in architectures {
+                    print("\nBuilding OpenSSL for \(platform) - \(architecture)...")
+                    try buildOpenSSL(
+                        context: context,
+                        platform: platform,
+                        architecture: architecture,
+                        arguments: arguments
+                    )
+                }
             }
+            // TODO: createOpenSSLXCFrameworks doesn't know anything about architectures yet
             try createOpenSSLXCFrameworks(with: context, platforms: platforms)
         }
 
         if libraries.contains(.libssh2) {
             for platform in platforms {
-                print("\nBuilding libssh2 for \(platform)...")
+                let architectures = try architectures(from: architectureArgument, for: platform)
+                print("\nBuilding libssh2 for \(platform), architectures: \(architectures)...")
                 try buildLibSSH2(
-                    context: context, platform: platform, arguments: arguments
+                    context: context,
+                    platform: platform,
+                    architectures: architectures,
+                    arguments: arguments
                 )
             }
+
             try createLibSSH2Framework(with: context, platforms: platforms)
         }
 
         if libraries.contains(.libgit2) {
             for platform in platforms {
-                print("\nBuilding libgit2 for \(platform)...")
+                let architectures = try architectures(from: architectureArgument, for: platform)
+                print("\nBuilding libgit2 for \(platform), architectures: \(architectures)...")
                 try buildLibGit2(
-                    context: context, platform: platform, arguments: arguments
+                    context: context,
+                    platform: platform,
+                    architectures: architectures,
+                    arguments: arguments
                 )
             }
             try createLibGit2Framework(with: context, platforms: platforms)
@@ -57,6 +78,34 @@ private func platforms(from argument: String) throws -> [Platform] {
         throw PluginError("\(argument) is not a valid platform.")
     }
     return [platform]
+}
+
+// TODO: rename modalities to something else?
+private func buildModalities(
+    from architectureArgument: String,
+    platforms: [Platform]
+) throws -> [(Platform, Architecture)] {
+    if architectureArgument == "all" {
+        return Architecture.allCompatibleCombinations(with: platforms)
+    }
+    guard let architecture = Architecture(rawValue: architectureArgument) else {
+        throw PluginError("\(architectureArgument) is not a valid architecture.")
+    }
+    return platforms.map { ($0, architecture) }
+}
+
+private func architectures(
+    from architectureArgument: String,
+    for platform: Platform
+) throws -> [Architecture] {
+    if architectureArgument == "all" {
+        return Architecture.allCompatibleArchitectures(with: platform)
+    } else {
+        guard let architecture = Architecture(rawValue: architectureArgument) else {
+            throw PluginError("\(architectureArgument) is not a valid architecture.")
+        }
+        return [architecture]
+    }
 }
 
 private func libraries(from argument: String) throws -> Set<Library> {
