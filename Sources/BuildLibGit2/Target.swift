@@ -118,36 +118,6 @@ struct Target {
         }
     }
 
-
-    static func baseWorkDirectoryURL(_ context: Context, libraryName: String) -> URL {
-        context.workDirectoryURL.appending(component: libraryName)
-    }
-
-    static func workDirectoryURL(
-        _ context: Context,
-        libraryName: String,
-        platform: Platform,
-        architectures: [Architecture],
-    ) -> URL {
-        baseWorkDirectoryURL(context, libraryName: libraryName)
-            .appending(component: Self.filesystemFriendlyName(platform, architectures))
-    }
-
-
-    static func installDirURL(
-        _ context: Context,
-        libraryName: String,
-        platform: Platform,
-        architectures: [Architecture],
-    ) -> URL {
-        workDirectoryURL(
-            context,
-            libraryName: libraryName,
-            platform: platform,
-            architectures: architectures
-        ).appending(component: "install")
-    }
-
     static func filesystemFriendlyName(
         _ platform: Platform,
         _ architectures: [Architecture]

@@ -178,12 +178,7 @@ func createOpenSSLXCFrameworks(
     let namesAndBinaries = ["libssl", "libcrypto"].map { binaryName in
         // I want the binaries for this binaryName and for each platform and combined archs (e.g. for each target)
         let binaries = targets.map {
-            Target.installDirURL(
-                context,
-                libraryName: $0.libraryName,
-                platform: $0.platform,
-                architectures: $0.architectures
-            )
+            $0.installDirURL(context)
             .appending(components: "lib", binaryName + ".a")
         }
         return (binaryName, binaries)
