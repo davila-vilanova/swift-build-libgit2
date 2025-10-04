@@ -15,7 +15,7 @@ struct Target {
     let libraryName: String
     let platform: Platform
     let architectures: [Architecture]
-    let binariesDirRelativePath: String // to the install dir
+    let binariesDirRelativePath: String  // to the install dir
     let outputBinaryNames: [String]
 
     init(
@@ -36,21 +36,17 @@ struct Target {
         context.workDirectoryURL.appending(component: libraryName)
     }
 
+    func sourceDirURL(_ context: Context) -> URL {
+        baseWorkDirectoryURL(context).appending(component: "src")
+    }
+
     // TODO: maybe rename
     func workDirectoryURL(_ context: Context) -> URL {
         baseWorkDirectoryURL(context)
             .appending(component: Self.filesystemFriendlyName(platform, architectures))
     }
 
-//    func workDirectoryURL(for architectures: [Architecture], context: Context) ->
-
-    // TODO: rename to sourceDirURL
-    func sourceURL(_ context: Context) -> URL {
-        baseWorkDirectoryURL(context).appending(component: "src")
-    }
-
-    // TODO: rename to buildDirURL
-    func buildURL(_ context: Context) -> URL {
+    func buildDirURL(_ context: Context) -> URL {
         workDirectoryURL(context).appending(component: "build")
     }
 
@@ -63,19 +59,11 @@ struct Target {
     }
 
     func installBinaryURLs(_ context: Context) -> [URL] {
-        outputBinaryNames.map { installDirURL(context)
+        outputBinaryNames.map {
+            installDirURL(context)
                 .appending(components: binariesDirRelativePath, $0)
         }
     }
-
-//    func thinAndFatBinaryURLs(_ context: Context) -> [([URL], URL)] {
-//        outputBinaryNames.map { binaryName in
-//            let thingBinaryURLs = architectures.map { arch in
-//                baseWorkDirectoryURL(context)
-//                    .appending(components: [])
-//            }
-//        }
-//    }
 
     func renamed(to newName: String) -> Target {
         return Target(
@@ -166,19 +154,3 @@ private func cmakeArchitectureName(for architecture: Architecture) -> String {
 func cmakeArchitecturesValue(for architectures: [Architecture]) -> String {
     architectures.map(cmakeArchitectureName(for:)).joined(separator: ";")
 }
-
-//func locationsForPlatforms(
-//    _ platforms: [Platform],
-//    libraryName: String,
-//    findLibraryDir: (Platform) -> URL,
-//) -> ([URL], URL) {
-//    assert(!platforms.isEmpty)
-//
-//    let binaries = platforms.map {
-//        findLibraryDir($0).appending(components: "lib", "\(libraryName).a")
-//    }
-//    let headers = findLibraryDir(platforms.first!)
-//        .appending(component: "include")
-//
-//    return (binaries, headers)
-//}

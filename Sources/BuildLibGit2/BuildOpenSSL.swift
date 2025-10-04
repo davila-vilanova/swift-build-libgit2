@@ -2,17 +2,29 @@ import Foundation
 
 func buildOpenSSL(
     context: Context,
-    target: Target, // a target per platform, with potentially multiple archs
+    target: Target,  // a target per platform, with potentially multiple archs
 ) throws {
-    for t in target.splitIntoArchitectures() {
+    for singleArchTarget in target.splitIntoArchitectures() {
+        let platform = singleArchTarget.platform
+        let architectures = singleArchTarget.architectures
+        assert(
+            architectures.count == 1,
+            "Expected single architecture target, got \(architectures) for platform \(platform)"
+        )
+        let architecture = architectures.first!
+
+        let sourceDirURL = singleArchTarget.sourceDirURL(context)
+        let buildDirURL = singleArchTarget.buildDirURL(context)
+        let installDirURL = singleArchTarget.installDirURL(context)
+
         let logFileHandle = try prepareBuild(
-            libraryName: t.libraryName,
-            buildDirURL: t.buildURL(context),
-            installDirURL: t.installDirURL(context),
+            libraryName: singleArchTarget.libraryName,
+            buildDirURL: buildDirURL,
+            installDirURL: installDirURL,
             context: context,
             cloneRepository: {
                 try cloneRepository(
-                    into: t.sourceURL(context),
+                    into: sourceDirURL,
                     context: context
                 )
             },
@@ -20,27 +32,27 @@ func buildOpenSSL(
 
         try configureBuild(
             with: context,
-            platform: t.platform,
-            architecture: t.architectures.first!,
-            srcURL: t.sourceURL(context),
-            buildURL: t.buildURL(context),
-            installURL: t.installDirURL(context),
+            platform: platform,
+            architecture: architecture,
+            srcURL: sourceDirURL,
+            buildURL: buildDirURL,
+            installURL: installDirURL,
             loggingTo: logFileHandle
         )
         try runMake(
             with: context,
-            in: t.buildURL(context),
+            in: buildDirURL,
             loggingTo: logFileHandle
         )
         try runMakeInstall(
             with: context,
-            in: t.buildURL(context),
+            in: buildDirURL,
             loggingTo: logFileHandle
         )
 
         print(
-            "OpenSSL libraries for \(t.platform), \(t.architectures) "
-            + "can be found at \(t.installDirURL(context).path())"
+            "OpenSSL libraries for \(platform), \(architecture) "
+                + "can be found at \(installDirURL.path())"
         )
     }
 
@@ -60,22 +72,25 @@ private func combineArchitectures(for target: Target, context: Context) throws {
     try fileManager.createDirectory(at: destinationBinaryDir, withIntermediateDirectories: true)
 
     func combineArchitecturesForBinary(named binaryName: String) throws {
-        let destinationFatBinary = destinationBinaryDir
+        let destinationFatBinary =
+            destinationBinaryDir
             .appending(component: binaryName + ".a")
 
         let lipo = Process()
         lipo.executableURL = try context.urlForTool(named: "lipo")
-        lipo.arguments = [
-            "-create",
-        ] + target.splitIntoArchitectures().map {
-            $0.installDirURL(context)
-                .appending(components: "lib", "\(binaryName).a")
-                .path()
-        } + [
-            "-output",
-            destinationFatBinary.path()
-        ]
-        try runProcess(lipo, .inheritFromProcess) // TODO: what to do with output here? Separate log file? stdout?
+        lipo.arguments =
+            [
+                "-create"
+            ]
+            + target.splitIntoArchitectures().map {
+                $0.installDirURL(context)
+                    .appending(components: "lib", "\(binaryName).a")
+                    .path()
+            } + [
+                "-output",
+                destinationFatBinary.path(),
+            ]
+        try runProcess(lipo, .inheritFromProcess)  // TODO: what to do with output here? Separate log file? stdout?
     }
 
     for name in ["libssl", "libcrypto"] {
@@ -166,7 +181,7 @@ private func runMakeInstall(
 
 @discardableResult
 func createOpenSSLXCFrameworks(
-    targets: [Target], // a target for each platform
+    targets: [Target],  // a target for each platform
     context: Context,
 ) throws -> [URL] {
     // at least one target required
@@ -179,14 +194,15 @@ func createOpenSSLXCFrameworks(
         // I want the binaries for this binaryName and for each platform and combined archs (e.g. for each target)
         let binaries = targets.map {
             $0.installDirURL(context)
-            .appending(components: "lib", binaryName + ".a")
+                .appending(components: "lib", binaryName + ".a")
         }
         return (binaryName, binaries)
     }
 
     // The headers each target points to are equivalent
     // but need to get the headers from a single-architecture build
-    let headers = firstTarget.splitIntoArchitectures().first!.installDirURL(context).appending(components: "include", "openssl")
+    let headers = firstTarget.splitIntoArchitectures().first!.installDirURL(context).appending(
+        components: "include", "openssl")
 
     return try namesAndBinaries.map { (name, binaries) -> URL in
         try createXCFramework(
