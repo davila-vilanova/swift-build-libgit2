@@ -1,5 +1,4 @@
 import Foundation
-import PackagePlugin
 
 func getSystemCPUCount() -> Int {
     return ProcessInfo.processInfo.processorCount
@@ -10,7 +9,7 @@ struct SDKInfo {
     let url: URL
 }
 
-func getSDKInfo(context: PluginContext, platform: Platform) throws -> SDKInfo {
+func getSDKInfo(context: Context, platform: Platform) throws -> SDKInfo {
     let xcodebuildOutput = try runToolForOutput(
         tool: "xcodebuild",
         arguments: ["-version", "-sdk", sdkName(for: platform)],
@@ -24,19 +23,19 @@ func getSDKInfo(context: PluginContext, platform: Platform) throws -> SDKInfo {
         xcodebuildOutput.first(where: { $0.starts(with: "Path") })
 
     guard let version = versionLine?.split(separator: " ").last else {
-        throw PluginError("Failed to find SDK version in xcodebuild output")
+        throw Error("Failed to find SDK version in xcodebuild output")
     }
     guard let path = pathLine?.split(separator: " ").last else {
-        throw PluginError("Failed to find SDK path in xcodebuild output")
+        throw Error("Failed to find SDK path in xcodebuild output")
     }
     guard let url = URL(string: String(path)) else {
-        throw PluginError("Invalid SDK path: \(path)")
+        throw Error("Invalid SDK path: \(path)")
     }
     return SDKInfo(version: String(version), url: url)
 }
 
 private func runToolForOutput(
-    tool: String, arguments: [String], context: PluginContext,
+    tool: String, arguments: [String], context: Context,
     trimmingWhitespaceAndNewLines: Bool = true
 ) throws
     -> String
@@ -44,7 +43,7 @@ private func runToolForOutput(
     let successPipe = Pipe()
 
     let process = Process()
-    process.executableURL = try context.tool(named: tool).url
+    process.executableURL = try context.urlForTool(named: tool)
     process.arguments = arguments
     process.standardOutput = successPipe
 
@@ -56,7 +55,7 @@ extension Pipe {
     fileprivate func contentsAsString(trimmingWhitespaceAndNewLines: Bool = true) throws -> String {
         let data = fileHandleForReading.readDataToEndOfFile()
         guard let string = String(data: data, encoding: .utf8) else {
-            throw PluginError("Failed to convert pipe contents to string")
+            throw Error("Failed to convert pipe contents to string")
         }
         return trimmingWhitespaceAndNewLines
             ? string.trimmingCharacters(in: .whitespacesAndNewlines) : string

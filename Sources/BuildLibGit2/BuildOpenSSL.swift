@@ -1,72 +1,111 @@
 import Foundation
-import PackagePlugin
 
 func buildOpenSSL(
-    context: PluginContext,
-    platform: Platform,
-    architecture: Architecture,
-    arguments: [String]
+    context: Context,
+    target: Target, // a target per platform, with potentially multiple archs
 ) throws {
-    let (buildURLs, logFileHandle) = try prepareBuild(
-        libraryName: "openssl",
-        getInstallDir: openSSLLibsDirectoryURL,
-        context: context,
-        platform: platform,
-        arguments: arguments,
-        cloneRepository: cloneRepository,
-    )
+    for t in target.splitIntoArchitectures() {
+        let logFileHandle = try prepareBuild(
+            libraryName: t.libraryName,
+            buildDirURL: t.buildURL(context),
+            installDirURL: t.installDirURL(context),
+            context: context,
+            cloneRepository: {
+                try cloneRepository(
+                    into: t.sourceURL(context),
+                    context: context
+                )
+            },
+        )
 
-    try configureBuild(
-        with: context,
-        for: platform,
-        architecture: architecture,
-        urls: buildURLs,
-        loggingTo: logFileHandle
-    )
-    try runMake(
-        with: context,
-        in: buildURLs.build,
-        loggingTo: logFileHandle
-    )
-    try runMakeInstall(
-        with: context,
-        in: buildURLs.build,
-        loggingTo: logFileHandle
-    )
+        try configureBuild(
+            with: context,
+            platform: t.platform,
+            architecture: t.architectures.first!,
+            srcURL: t.sourceURL(context),
+            buildURL: t.buildURL(context),
+            installURL: t.installDirURL(context),
+            loggingTo: logFileHandle
+        )
+        try runMake(
+            with: context,
+            in: t.buildURL(context),
+            loggingTo: logFileHandle
+        )
+        try runMakeInstall(
+            with: context,
+            in: t.buildURL(context),
+            loggingTo: logFileHandle
+        )
 
-    print("OpenSSL libraries for \(platform.rawValue) and \(architecture.rawValue)" +
-          "can be found at \(buildURLs.install.path())")
+        print(
+            "OpenSSL libraries for \(t.platform), \(t.architectures) "
+            + "can be found at \(t.installDirURL(context).path())"
+        )
+    }
+
+    if target.architectures.count > 1 {
+        try combineArchitectures(for: target, context: context)
+    }
 }
 
-func openSSLLibsDirectoryURL(
-    for context: PluginContext,
-    platform: Platform
-) -> URL {
-    context.pluginWorkDirectoryURL.appending(
-        components: "openssl_libs", libraryDirectoryName(for: platform)
-    )
+private func combineArchitectures(for target: Target, context: Context) throws {
+    let fileManager = FileManager.default
+
+    let destinationBinaryDir = target.installDirURL(context)
+        .appending(component: target.binariesDirRelativePath)
+    if fileManager.fileExists(atPath: destinationBinaryDir.path()) {
+        try fileManager.removeItem(at: destinationBinaryDir)
+    }
+    try fileManager.createDirectory(at: destinationBinaryDir, withIntermediateDirectories: true)
+
+    func combineArchitecturesForBinary(named binaryName: String) throws {
+        let destinationFatBinary = destinationBinaryDir
+            .appending(component: binaryName + ".a")
+
+        let lipo = Process()
+        lipo.executableURL = try context.urlForTool(named: "lipo")
+        lipo.arguments = [
+            "-create",
+        ] + target.splitIntoArchitectures().map {
+            $0.installDirURL(context)
+                .appending(components: "lib", "\(binaryName).a")
+                .path()
+        } + [
+            "-output",
+            destinationFatBinary.path()
+        ]
+        try runProcess(lipo, .inheritFromProcess) // TODO: what to do with output here? Separate log file? stdout?
+    }
+
+    for name in ["libssl", "libcrypto"] {
+        try combineArchitecturesForBinary(named: name)
+    }
+
+    // TODO: could return "combined targets"
 }
 
-private func cloneRepository(with context: PluginContext) throws -> URL {
+private func cloneRepository(into srcURL: URL, context: Context) throws {
     try cloneRepository(
         at: "https://github.com/openssl/openssl.git",
         with: context,
         tag: "openssl-3.5.1",
-        into: "openssl_src"
+        into: srcURL
     )
 }
 
 private func configureBuild(
-    with context: PluginContext,
-    for platform: Platform,
+    with context: Context,
+    platform: Platform,
     architecture: Architecture,
-    urls: BuildURLs,
+    srcURL: URL,
+    buildURL: URL,
+    installURL: URL,
     loggingTo logFileHandle: FileHandle,
 ) throws {
     let configure = Process()
-    configure.currentDirectoryURL = urls.build
-    configure.executableURL =
-        fakeConfigureURL(context) ?? urls.source.appending(component: "Configure")
+    configure.currentDirectoryURL = buildURL
+    configure.executableURL = srcURL.appending(component: "Configure")
 
     configure.arguments =
         [try targetName(for: platform, architecture: architecture)] + [
@@ -76,18 +115,18 @@ private func configureBuild(
             "no-docs",
             "no-ui-console",
             "zlib",
-            "--prefix=\(urls.install.path(percentEncoded: true))",
+            "--prefix=\(installURL.path(percentEncoded: true))",
         ]
 
     try runProcess(configure, .mergeOutputError(.fileHandle(logFileHandle)))
 }
 
-
 private func targetName(for platform: Platform, architecture: Architecture) throws -> String {
-    switch (platform, architecture) { // TODO: is this syntax idiomatic?
+    switch (platform, architecture) {  // TODO: is this syntax idiomatic?
     case (.iPhoneOS, .arm64): "ios64-xcrun"
-    case (.iPhoneOS, .x86_64): throw IncompatiblePlatformArchitectureError(
-        platform: platform, architecture: architecture)
+    case (.iPhoneOS, .x86_64):
+        throw IncompatiblePlatformArchitectureError(
+            platform: platform, architecture: architecture)
     case (.iPhoneSimulator, .arm64): "iossimulator-arm64-xcrun"
     case (.iPhoneSimulator, .x86_64): "iossimulator-x86_64-xcrun"
     case (.macOS, .arm64): "darwin64-arm64"
@@ -96,15 +135,13 @@ private func targetName(for platform: Platform, architecture: Architecture) thro
 }
 
 private func runMake(
-    with context: PluginContext,
+    with context: Context,
     in buildDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws {
-    let makeTool = try context.tool(named: "make")
-
     let make = Process()
     make.currentDirectoryURL = buildDir
-    make.executableURL = fakeMakeURL(context) ?? makeTool.url
+    make.executableURL = try context.urlForTool(named: "make")
     make.arguments = [
         "-j", "\(getSystemCPUCount())",
         "build_libs",
@@ -113,15 +150,13 @@ private func runMake(
 }
 
 private func runMakeInstall(
-    with context: PluginContext,
+    with context: Context,
     in buildDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws {
-    let makeTool = try context.tool(named: "make")
-
     let makeInstall = Process()
     makeInstall.currentDirectoryURL = buildDir
-    makeInstall.executableURL = fakeMakeURL(context) ?? makeTool.url
+    makeInstall.executableURL = try context.urlForTool(named: "make")
     makeInstall.arguments = ["install_sw"]
     try runProcess(
         makeInstall,
@@ -131,16 +166,40 @@ private func runMakeInstall(
 
 @discardableResult
 func createOpenSSLXCFrameworks(
-    with context: PluginContext,
-    platforms: [Platform]
+    targets: [Target], // a target for each platform
+    context: Context,
 ) throws -> [URL] {
-    try ["libssl", "libcrypto"].map { libname in
+    // at least one target required
+    guard let firstTarget = targets.first else {
+        return []
+    }
+
+    // one framework per binary name
+    let namesAndBinaries = ["libssl", "libcrypto"].map { binaryName in
+        // I want the binaries for this binaryName and for each platform and combined archs (e.g. for each target)
+        let binaries = targets.map {
+            Target.installDirURL(
+                context,
+                libraryName: $0.libraryName,
+                platform: $0.platform,
+                architectures: $0.architectures
+            )
+            .appending(components: "lib", binaryName + ".a")
+        }
+        return (binaryName, binaries)
+    }
+
+    // The headers each target points to are equivalent
+    // but need to get the headers from a single-architecture build
+    let headers = firstTarget.splitIntoArchitectures().first!.installDirURL(context).appending(components: "include", "openssl")
+
+    return try namesAndBinaries.map { (name, binaries) -> URL in
         try createXCFramework(
-            name: libname,
-            findLibraryDir: openSSLLibsDirectoryURL,
-            context: context,
-            platforms: platforms)
+            named: name,
+            with: context,
+            binaries: binaries,
+            headers: headers,
+            placeInto: context.outputDirectoryURL
+        )
     }
 }
-
-

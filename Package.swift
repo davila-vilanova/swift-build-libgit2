@@ -3,13 +3,20 @@
 import PackageDescription
 
 let package = Package(
-    name: "build-libgit2-plugin",
+    name: "build-libgit2",
+    platforms: [
+        .macOS(.v13)
+    ],
     products: [
-        .plugin(name: "BuildLibGit2", targets: ["BuildLibGit2"])
+        .plugin(name: "BuildLibGit2Plugin", targets: ["BuildLibGit2Plugin"]),
+        .executable(name: "BuildLibGit2", targets: ["BuildLibGit2"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0")
     ],
     targets: [
         .plugin(
-            name: "BuildLibGit2",
+            name: "BuildLibGit2Plugin",
             capability: .command(
                 intent: .custom(
                     verb: "build-libgit2",
@@ -26,7 +33,12 @@ let package = Package(
                         reason:
                             "This plugin writes the output .xcframeworks to the package directory"),
                 ]),
-            path: "Plugins/BuildLibGit2",
-        )
+            path: "Plugins/BuildLibGit2Plugin",
+        ),
+        .executableTarget(
+            name: "BuildLibGit2",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser")
+            ]),
     ]
 )
