@@ -6,13 +6,13 @@ func buildLibGit2(
     openSSLTarget: Target,
     libSSH2Target: Target,
 ) throws {
-    let logFileHandle = try prepareBuild(
-        libraryName: target.libraryName,
-        buildDirURL: target.buildDirURL,
-        installDirURL: target.installDirURL,
-        cloneRepository: { try cloneRepository(into: target.sourceDirURL) },
-    )
+    let logFileHandle = try prepareBuild(for: target)
 
+    try cloneRepository(
+        at: "https://github.com/libgit2/libgit2.git",
+        tag: "v1.9.1",
+        into: target.sourceDirURL
+    )
 
     try configureBuild(
         target: target,
@@ -24,14 +24,6 @@ func buildLibGit2(
     try buildAndInstall(
         in: target.buildDirURL,
         loggingTo: logFileHandle
-    )
-}
-
-private func cloneRepository(into srcURL: URL) throws {
-    try cloneRepository(
-        at: "https://github.com/libgit2/libgit2.git",
-        tag: "v1.9.1",
-        into: srcURL
     )
 }
 

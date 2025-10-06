@@ -16,11 +16,11 @@ func buildOpenSSL(target: Target) throws {
         let buildDirURL = singleArchTarget.buildDirURL
         let installDirURL = singleArchTarget.installDirURL
 
-        let logFileHandle = try prepareBuild(
-            libraryName: singleArchTarget.libraryName,
-            buildDirURL: buildDirURL,
-            installDirURL: installDirURL,
-            cloneRepository: { try cloneRepository(into: sourceDirURL) },
+        let logFileHandle = try prepareBuild(for: target)
+        try cloneRepository(
+            at: "https://github.com/openssl/openssl.git",
+            tag: "openssl-3.5.1",
+            into: target.sourceDirURL,
         )
 
         try configureBuild(
@@ -49,14 +49,6 @@ func buildOpenSSL(target: Target) throws {
     if target.architectures.count > 1 {
         try combineArchitectures(for: target)
     }
-}
-
-private func cloneRepository(into srcURL: URL) throws {
-    try cloneRepository(
-        at: "https://github.com/openssl/openssl.git",
-        tag: "openssl-3.5.1",
-        into: srcURL
-    )
 }
 
 private func configureBuild(

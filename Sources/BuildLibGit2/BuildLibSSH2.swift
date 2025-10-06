@@ -2,11 +2,12 @@ import Foundation
 import Dependencies
 
 func buildLibSSH2(target: Target, openSSLTarget: Target) throws {
-    let logFileHandle = try prepareBuild(
-        libraryName: target.libraryName,
-        buildDirURL: target.buildDirURL,
-        installDirURL: target.installDirURL,
-        cloneRepository: { try cloneRepository(into: target.sourceDirURL)},
+    let logFileHandle = try prepareBuild(for: target)
+
+    try cloneRepository(
+        at: "https://github.com/libssh2/libssh2.git",
+        tag: "libssh2-1.11.1",
+        into: target.sourceDirURL,
     )
 
     try configureBuild(
@@ -21,14 +22,6 @@ func buildLibSSH2(target: Target, openSSLTarget: Target) throws {
     )
 
     print("libssh2 library can be found at \(target.installDirURL.path())")
-}
-
-private func cloneRepository(into sourceURL: URL) throws {
-    try cloneRepository(
-        at: "https://github.com/libssh2/libssh2.git",
-        tag: "libssh2-1.11.1",
-        into: sourceURL
-    )
 }
 
 private func configureBuild(
