@@ -13,7 +13,10 @@ struct Build: ParsableCommand {
         .allCases
 
     mutating func run() throws {
-        guard let workingDirectory = ProcessInfo.processInfo.environment["PWD"] else {
+        let explicitWorkingDirectory = ProcessInfo.processInfo.environment["OPWD"]
+        let implicitWorkingDirectory = ProcessInfo.processInfo.environment["PWD"]
+
+        guard let workingDirectory = explicitWorkingDirectory ?? implicitWorkingDirectory else {
             throw Error("Cannot parse working directory from environment")
         }
         let workingDirectoryURL = URL(filePath: workingDirectory, directoryHint: .isDirectory)
@@ -22,22 +25,34 @@ struct Build: ParsableCommand {
             $0.workDirectoryURL = workingDirectoryURL.appending(component: workDirectoryName)
             $0.outputDirectoryURL = workingDirectoryURL.appending(component: outputDirectoryName)
         } operation: {
+            let openSSLTargets = Target.targets(
+                forLibraryNamed: "openssl",
+                platforms: platforms,
+                architectures: architectures,
+                binariesLibRelativePath: "lib",
+                headersDirRelativePath: "include/openssl",
+                outputBinaryNames: ["libssl", "libcrypto"],
+            )
+            let libSSH2Targets = Target.targets(
+                forLibraryNamed: "libssh2",
+                platforms: platforms,
+                architectures: architectures,
+                binariesLibRelativePath: "lib",
+                headersDirRelativePath: "include",
+            )
             if libraries.contains(.openssl) {
-                let targets = Target.targets(
-                    forLibraryNamed: "openssl",
-                    platforms: platforms,
-                    architectures: architectures,
-                    binariesLibRelativePath: "lib",
-                    outputBinaryNames: ["libssl", "libcrypto"],
-                )
-                for t in targets {
+                for t in openSSLTargets {
                     try buildOpenSSL(target: t)
                 }
-                try createOpenSSLXCFrameworks(targets: targets)
+                try createOpenSSLXCFrameworks(targets: openSSLTargets)
             }
-            //        if libraries.contains(.libssh2) {
-            //            try buildLibSSH2(for: targets, with: context)
-            //        }
+            if libraries.contains(.libssh2) {
+                for target in libSSH2Targets {
+                    let openSSLTarget = openSSLTargets.first { $0.platform == target.platform }!
+                    try buildLibSSH2(target: target, openSSLTarget: openSSLTarget)
+                }
+                try createLibSSH2Framework(targets: libSSH2Targets)
+            }
             //        if libraries.contains(.libgit2) {
             //            try buildLibGit2(for: targets, with: context)
             //        }

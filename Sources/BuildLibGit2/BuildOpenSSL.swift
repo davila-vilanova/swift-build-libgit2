@@ -134,10 +134,30 @@ private func combineArchitectures(for target: Target) throws {
 
     let destinationBinaryDir = target.installDirURL
         .appending(component: target.binariesDirRelativePath)
-    if fileManager.fileExists(atPath: destinationBinaryDir.path()) {
-        try fileManager.removeItem(at: destinationBinaryDir)
+    let destinationHeadersDir = target.installDirURL
+        .appending(component: target.headersDirRelativePath)
+
+    for dir in [destinationBinaryDir, destinationHeadersDir] {
+        if fileManager.fileExists(atPath: dir.path()) {
+            try fileManager.removeItem(at: dir)
+        }
     }
-    try fileManager.createDirectory(at: destinationBinaryDir, withIntermediateDirectories: true)
+
+    try fileManager.createDirectory(
+        at: destinationBinaryDir, withIntermediateDirectories: true
+    )
+
+    var d = destinationHeadersDir
+    d.deleteLastPathComponent()
+    try fileManager.createDirectory(
+        at: d, withIntermediateDirectories: true
+    )
+
+    // Copy headers
+    let oneBuiltTarget = target.splitIntoArchitectures().first!
+    let sourceHeadersDir = oneBuiltTarget.installDirURL
+        .appending(component: oneBuiltTarget.headersDirRelativePath)
+    try fileManager.copyItem(at: sourceHeadersDir, to: destinationHeadersDir)
 
     func combineArchitecturesForBinary(named binaryName: String) throws {
         let destinationFatBinary =
@@ -190,9 +210,8 @@ func createOpenSSLXCFrameworks(
     }
 
     // The headers each target points to are equivalent
-    // but need to get the headers from a single-architecture build
-    let headers = firstTarget.splitIntoArchitectures().first!.installDirURL.appending(
-        components: "include", "openssl")
+    let headers = firstTarget.installDirURL
+        .appending(path: firstTarget.headersDirRelativePath)
 
     return try namesAndBinaries.map { (name, binaries) -> URL in
         try createXCFramework(

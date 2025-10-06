@@ -17,6 +17,7 @@ struct Target {
     let platform: Platform
     let architectures: [Architecture]
     let binariesDirRelativePath: String  // to the install dir
+    let headersDirRelativePath: String
     let outputBinaryNames: [String]
 
     init(
@@ -24,12 +25,14 @@ struct Target {
         platform: Platform,
         architectures: [Architecture],
         binariesDirRelativePath: String,
+        headersDirRelativePath: String,
         outputBinaryNames: [String]? = nil,
     ) {
         self.libraryName = libraryName
         self.platform = platform
         self.architectures = architectures
         self.binariesDirRelativePath = binariesDirRelativePath
+        self.headersDirRelativePath = headersDirRelativePath
         self.outputBinaryNames = outputBinaryNames ?? [libraryName + ".a"]
     }
 
@@ -72,6 +75,7 @@ struct Target {
             platform: platform,
             architectures: architectures,
             binariesDirRelativePath: binariesDirRelativePath,
+            headersDirRelativePath: headersDirRelativePath,
             outputBinaryNames: outputBinaryNames
         )
     }
@@ -83,6 +87,7 @@ struct Target {
                 platform: platform,
                 architectures: [$0],
                 binariesDirRelativePath: binariesDirRelativePath,
+                headersDirRelativePath: headersDirRelativePath,
                 outputBinaryNames: outputBinaryNames,
             )
         }.filter { Self.areCompatible($0.platform, $0.architectures.first!) }
@@ -94,6 +99,7 @@ struct Target {
         platforms: [Platform],
         architectures: [Architecture],
         binariesLibRelativePath: String,
+        headersDirRelativePath: String,
         outputBinaryNames: [String]? = nil
     ) -> [Target] {
         platforms.map { p in
@@ -102,6 +108,7 @@ struct Target {
                 platform: p,
                 architectures: architectures.filter { a in areCompatible(p, a) },
                 binariesDirRelativePath: binariesLibRelativePath,
+                headersDirRelativePath: headersDirRelativePath,
                 outputBinaryNames: outputBinaryNames
             )
         }
