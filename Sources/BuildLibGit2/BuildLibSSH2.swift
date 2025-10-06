@@ -3,7 +3,7 @@ import Dependencies
 
 func buildLibSSH2(target: Target, openSSLTarget: Target) throws {
     let logFileHandle = try prepareBuild(
-        libraryName: "libssh2",
+        libraryName: target.libraryName,
         buildDirURL: target.buildDirURL,
         installDirURL: target.installDirURL,
         cloneRepository: { try cloneRepository(into: target.sourceDirURL)},
@@ -38,8 +38,8 @@ private func configureBuild(
 ) throws {
     @Dependency(\.urlForTool) var urlForTool
 
-    assert(target.platform == openSSLTarget.platform)
-    assert(Set(target.architectures) == Set(openSSLTarget.architectures))
+    assert(openSSLTarget.platform == target.platform)
+    assert(Set(openSSLTarget.architectures) == Set(target.architectures))
 
     let cmake = Process()
     cmake.currentDirectoryURL = target.buildDirURL
@@ -95,13 +95,12 @@ private func buildAndInstall(
 }
 
 @discardableResult
-func createLibSSH2Framework(targets: [Target]) throws -> [URL] {
+func createLibSSH2Framework(targets: [Target]) throws -> URL {
     @Dependency(\.outputDirectoryURL) var outputDirectoryURL
 
     // at least one target required
-    guard let firstTarget = targets.first else {
-        return []
-    }
+    assert(!targets.isEmpty)
+    let firstTarget = targets.first!
 
     let binaries = targets.map {
         $0.installDirURL
@@ -111,10 +110,10 @@ func createLibSSH2Framework(targets: [Target]) throws -> [URL] {
     let headers = firstTarget.installDirURL
         .appending(path: firstTarget.headersDirRelativePath)
 
-    return [try createXCFramework(
+    return try createXCFramework(
         named: firstTarget.libraryName,
         binaries: binaries,
         headers: headers,
         placeInto: outputDirectoryURL
-    )]
+    )
 }

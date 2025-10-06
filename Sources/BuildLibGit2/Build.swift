@@ -1,6 +1,6 @@
-import Foundation
 import ArgumentParser
 import Dependencies
+import Foundation
 
 private let workDirectoryName = "build_libgit2_work"
 private let outputDirectoryName = "build_libgit2_output"
@@ -40,50 +40,46 @@ struct Build: ParsableCommand {
                 binariesLibRelativePath: "lib",
                 headersDirRelativePath: "include",
             )
+            let libGit2Targets = Target.targets(
+                forLibraryNamed: "libgit2",
+                platforms: platforms,
+                architectures: architectures,
+                binariesLibRelativePath: "lib",
+                headersDirRelativePath: "include",
+            )
             if libraries.contains(.openssl) {
                 for t in openSSLTargets {
+                    print("\nBuilding OpenSSL for \(t.platform), archs: \(t.architectures)")
                     try buildOpenSSL(target: t)
                 }
                 try createOpenSSLXCFrameworks(targets: openSSLTargets)
             }
             if libraries.contains(.libssh2) {
                 for target in libSSH2Targets {
+                    print(
+                        "\nBuilding LibSSH2 for \(target.platform), archs: \(target.architectures)")
                     let openSSLTarget = openSSLTargets.first { $0.platform == target.platform }!
                     try buildLibSSH2(target: target, openSSLTarget: openSSLTarget)
                 }
                 try createLibSSH2Framework(targets: libSSH2Targets)
             }
-            //        if libraries.contains(.libgit2) {
-            //            try buildLibGit2(for: targets, with: context)
-            //        }
+            if libraries.contains(.libgit2) {
+                for target in libGit2Targets {
+                    print(
+                        "\nBuilding LibGit2 for \(target.platform), archs: \(target.architectures)")
+                    let openSSLTarget = openSSLTargets.first { $0.platform == target.platform }!
+                    let libSSH2Target = libSSH2Targets.first { $0.platform == target.platform }!
+                    try buildLibGit2(
+                        target: target,
+                        openSSLTarget: openSSLTarget,
+                        libSSH2Target: libSSH2Target
+                    )
+                }
+                try createLibGit2Framework(targets: libGit2Targets)
+            }
         }
     }
 }
-
-//private func buildLibSSH2(for targets: [Target], with context: Context) throws {
-//    for t in targets {
-//        print("\nBuilding libssh2 for \(t.platform), architectures: \(t.architecture)...")
-//        try BuildLibGit2.buildLibSSH2(
-//            context: context,
-//            platform: t.platform,
-//            architectures: targets.architectures(for: t.platform),
-//        )
-//    }
-//
-//    try createLibSSH2Framework(with: context, platforms: targets.platforms)
-//}
-//
-//private func buildLibGit2(for targets: [Target], with context: Context) throws {
-//    for t in targets {
-//        print("\nBuilding libgit2 for \(t.platform), architectures: \(t.architecture)...")
-//        try BuildLibGit2.buildLibGit2(
-//            context: context,
-//            platform: t.platform,
-//            architectures: targets.architectures(for: t.platform),
-//        )
-//    }
-//    try createLibGit2Framework(with: context, platforms: targets.platforms)
-//}
 
 enum Library: String, CaseIterable, ExpressibleByArgument {
     case openssl

@@ -1,138 +1,138 @@
-//import Foundation
-//
-//func buildLibGit2(
-//    context: Context,
-//    platform: Platform,
-//    architectures: [Architecture],
-//) throws {
-//    let (buildURLs, logFileHandle) = try prepareBuild(
-//        libraryName: "libgit2",
-//        getInstallDir: libGit2LibsDirectoryURL,
-//        context: context,
-//        platform: platform,
-//        cloneRepository: cloneRepository,
-//    )
-//
-//
-//    try configureBuild(
-//        with: context,
-//        urls: buildURLs,
-//        loggingTo: logFileHandle,
-//        platform: platform,
-//        architectures: architectures,
-//        sdkInfo: try getSDKInfo(context: context, platform: platform)
-//    )
-//
-//    try buildAndInstall(
-//        with: context,
-//        in: buildURLs.build,
-//        loggingTo: logFileHandle
-//    )
-//}
-//
-//func libGit2LibsDirectoryURL(
-//    for context: Context,
-//    platform: Platform
-//) -> URL {
-//    context.workDirectoryURL.appending(
-//        components: "libgit2_libs", libraryDirectoryName(for: platform)
-//    )
-//}
-//
-//private func cloneRepository(with context: Context) throws -> URL {
-//    try cloneRepository(
-//        at: "https://github.com/libgit2/libgit2.git",
-//        with: context,
-//        tag: "v1.9.1",
-//        into: "libgit2_src"
-//    )
-//}
-//
-//private func configureBuild(
-//    with context: Context,
-//    urls: BuildURLs,
-//    loggingTo logFileHandle: FileHandle,
-//    platform: Platform,
-//    architectures: [Architecture],
-//    sdkInfo: SDKInfo
-//) throws {
-//    let cmake = Process()
-//    cmake.currentDirectoryURL = urls.build
-//    cmake.executableURL = try context.urlForTool(named: "cmake")
-//
-//    let libSSH2LibsDir = libSSH2LibsDirectoryURL(for: context, platform: platform)
-//    let openSSLLibsDir = openSSLLibsDirectoryURL(for: context, platform: platform)
-//
-//    cmake.arguments = [
-//        "-S", urls.source.path(),
-//        "-DCMAKE_OSX_SYSROOT=\(sdkInfo.url.path())",
-//        "-DCMAKE_SYSTEM_NAME=\(cmakeSystemName(for: platform))",
-//        "-DCMAKE_OSX_ARCHITECTURES:STRING=\(cmakeArchitecturesValue(for: architectures))",
-//        "-DCMAKE_C_COMPILER_WORKS:BOOL=ON",
-//        "-DPKG_CONFIG_EXECUTABLE=NO_EXEC",
-//        "-DPKG_CONFIG_USE_CMAKE_PREFIX_PATH:BOOL=ON",
-//        "-DUSE_SSH=ON",
-//        "-DLIBSSH2_LIBRARY=\(libSSH2LibsDir.appending(components: "lib", "libssh2.a").path())",
-//        "-DLIBSSH2_INCLUDE_DIR=\(libSSH2LibsDir.appending(component: "include").path())",
-//        "-DLIBSSH2_LDFLAGS=-lssh2",
-//        "-DHAVE_LIBSSH2_MEMORY_CREDENTIALS=ON",
-//        "-DOPENSSL_ROOT_DIR=\(openSSLLibsDir.path())",
-//        "-DOPENSSL_INCLUDE_DIR=\(openSSLLibsDir.path())/include",
-//        "-DOPENSSL_SSL_LIBRARY=\(openSSLLibsDir.appending(component: "lib").appending(component: "libssl.a").path())",
-//        "-DOPENSSL_CRYPTO_LIBRARY=\(openSSLLibsDir.appending(component: "lib").appending(component: "libcrypto.a").path())",
-//        "-DBUILD_SHARED_LIBS:BOOL=OFF",
-//        "-DCMAKE_INSTALL_PREFIX:PATH=\(urls.install.path())",
-//        "-DBUILD_TESTS=OFF",
-//        "-DBUILD_CLI=OFF",
-//        "-DBUILD_EXAMPLES=OFF",
-//        "-DBUILD_FUZZERS=OFF",
-//        "-B", urls.build.path(),
-//    ]
-//    // cmake.environment = [
-//    //     "OPENSSL_ROOT_DIR": openSSLLibsDir.path()
-//    // ]
-//
-//    try runProcess(
-//        cmake, .mergeOutputError(.fileHandle(logFileHandle)), name: "CMake configuration"
-//    )
-//}
-//
-//private func buildAndInstall(
-//    with context: Context,
-//    in buildDir: URL,
-//    loggingTo logFileHandle: FileHandle
-//) throws {
-//    let cmake = Process()
-//    cmake.currentDirectoryURL = buildDir
-//    cmake.executableURL = try context.urlForTool(named: "cmake")
-//
-//    cmake.arguments = [
-//        "--build", buildDir.path(),
-//        "--target", "install",
-//        "--parallel", "\(getSystemCPUCount())",
-//    ]
-//
-//    try runProcess(
-//        cmake, .mergeOutputError(.fileHandle(logFileHandle)), name: "CMake build"
-//    )
-//}
-//
-//@discardableResult
-//func createLibGit2Framework(
-//    with context: Context,
-//    platforms: [Platform]
-//) throws -> URL {
-//    let frameworkURL = try createXCFramework(
-//        name: "libgit2",
-//        findLibraryDir: libGit2LibsDirectoryURL,
-//        context: context,
-//        platforms: platforms)
-//
-//    for platform in platforms {
-//        try writeModuleMap(
-//            inFrameworkAt: frameworkURL, platform: platform, architecture: .arm64
-//        )
-//    }
-//
-//    return frameworkURL
-//}
+import Foundation
+import Dependencies
+
+func buildLibGit2(
+    target: Target,
+    openSSLTarget: Target,
+    libSSH2Target: Target,
+) throws {
+    let logFileHandle = try prepareBuild(
+        libraryName: target.libraryName,
+        buildDirURL: target.buildDirURL,
+        installDirURL: target.installDirURL,
+        cloneRepository: { try cloneRepository(into: target.sourceDirURL) },
+    )
+
+
+    try configureBuild(
+        target: target,
+        openSSLTarget: openSSLTarget,
+        libSSH2Target: libSSH2Target,
+        loggingTo: logFileHandle,
+    )
+
+    try buildAndInstall(
+        in: target.buildDirURL,
+        loggingTo: logFileHandle
+    )
+}
+
+private func cloneRepository(into srcURL: URL) throws {
+    try cloneRepository(
+        at: "https://github.com/libgit2/libgit2.git",
+        tag: "v1.9.1",
+        into: srcURL
+    )
+}
+
+private func configureBuild(
+    target: Target,
+    openSSLTarget: Target,
+    libSSH2Target: Target,
+    loggingTo logFileHandle: FileHandle,
+) throws {
+    @Dependency(\.urlForTool) var urlForTool
+
+    assert(openSSLTarget.platform == target.platform)
+    assert(Set(openSSLTarget.architectures) == Set(target.architectures))
+
+    assert(libSSH2Target.platform == target.platform)
+    assert(Set(libSSH2Target.architectures) == Set(target.architectures))
+
+    let cmake = Process()
+    cmake.currentDirectoryURL = target.buildDirURL
+    cmake.executableURL = try urlForTool("cmake")
+
+    let openSSLLibsDir = openSSLTarget.installDirURL
+    let libSSH2LibsDir = libSSH2Target.installDirURL
+
+    let sdkInfo = try getSDKInfo(platform: target.platform)
+
+    cmake.arguments = [
+        "-S", target.sourceDirURL.path(),
+        "-DCMAKE_OSX_SYSROOT=\(sdkInfo.url.path())",
+        "-DCMAKE_SYSTEM_NAME=\(cmakeSystemName(for: target.platform))",
+        "-DCMAKE_OSX_ARCHITECTURES:STRING=\(cmakeArchitecturesValue(for: target.architectures))",
+        "-DCMAKE_C_COMPILER_WORKS:BOOL=ON",
+        "-DPKG_CONFIG_EXECUTABLE=NO_EXEC",
+        "-DPKG_CONFIG_USE_CMAKE_PREFIX_PATH:BOOL=ON",
+        "-DUSE_SSH=ON",
+        "-DLIBSSH2_LIBRARY=\(libSSH2LibsDir.appending(components: "lib", "libssh2.a").path())",
+        "-DLIBSSH2_INCLUDE_DIR=\(libSSH2LibsDir.appending(component: "include").path())",
+        "-DLIBSSH2_LDFLAGS=-lssh2",
+        "-DHAVE_LIBSSH2_MEMORY_CREDENTIALS=ON",
+        "-DOPENSSL_ROOT_DIR=\(openSSLLibsDir.path())",
+        "-DOPENSSL_INCLUDE_DIR=\(openSSLLibsDir.path())/include",
+        "-DOPENSSL_SSL_LIBRARY=\(openSSLLibsDir.appending(component: "lib").appending(component: "libssl.a").path())",
+        "-DOPENSSL_CRYPTO_LIBRARY=\(openSSLLibsDir.appending(component: "lib").appending(component: "libcrypto.a").path())",
+        "-DBUILD_SHARED_LIBS:BOOL=OFF",
+        "-DCMAKE_INSTALL_PREFIX:PATH=\(target.installDirURL.path())",
+        "-DBUILD_TESTS=OFF",
+        "-DBUILD_CLI=OFF",
+        "-DBUILD_EXAMPLES=OFF",
+        "-DBUILD_FUZZERS=OFF",
+        "-B", target.buildDirURL.path(),
+    ]
+    // cmake.environment = [
+    //     "OPENSSL_ROOT_DIR": openSSLLibsDir.path()
+    // ]
+
+    try runProcess(
+        cmake, .mergeOutputError(.fileHandle(logFileHandle)), name: "CMake configuration"
+    )
+}
+
+private func buildAndInstall(
+    in buildDir: URL,
+    loggingTo logFileHandle: FileHandle
+) throws {
+    @Dependency(\.urlForTool) var urlForTool
+
+    let cmake = Process()
+    cmake.currentDirectoryURL = buildDir
+    cmake.executableURL = try urlForTool("cmake")
+
+    cmake.arguments = [
+        "--build", buildDir.path(),
+        "--target", "install",
+        "--parallel", "\(getSystemCPUCount())",
+    ]
+
+    try runProcess(
+        cmake, .mergeOutputError(.fileHandle(logFileHandle)), name: "CMake build"
+    )
+}
+
+@discardableResult
+func createLibGit2Framework(targets: [Target]) throws -> URL {
+    @Dependency(\.outputDirectoryURL) var outputDirectoryURL
+
+    // at least one target required
+    assert(!targets.isEmpty)
+    let firstTarget = targets.first!
+
+    let binaries = targets.map {
+        $0.installDirURL
+            .appending(components: $0.binariesDirRelativePath, $0.libraryName)
+            .appendingPathExtension("a")
+    }
+    let headers = firstTarget.installDirURL
+        .appending(path: firstTarget.headersDirRelativePath)
+
+    return try createXCFramework(
+        named: firstTarget.libraryName,
+        binaries: binaries,
+        headers: headers,
+        placeInto: outputDirectoryURL
+    )
+}
