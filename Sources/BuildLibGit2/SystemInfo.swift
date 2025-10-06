@@ -1,3 +1,4 @@
+import Dependencies
 import Foundation
 
 func getSystemCPUCount() -> Int {
@@ -9,11 +10,10 @@ struct SDKInfo {
     let url: URL
 }
 
-func getSDKInfo(context: Context, platform: Platform) throws -> SDKInfo {
+func getSDKInfo(platform: Platform) throws -> SDKInfo {
     let xcodebuildOutput = try runToolForOutput(
         tool: "xcodebuild",
         arguments: ["-version", "-sdk", sdkName(for: platform)],
-        context: context
     )
     .split(separator: "\n")
 
@@ -35,15 +35,16 @@ func getSDKInfo(context: Context, platform: Platform) throws -> SDKInfo {
 }
 
 private func runToolForOutput(
-    tool: String, arguments: [String], context: Context,
+    tool: String, arguments: [String],
     trimmingWhitespaceAndNewLines: Bool = true
 ) throws
     -> String
 {
+    @Dependency(\.urlForTool) var urlForTool
     let successPipe = Pipe()
 
     let process = Process()
-    process.executableURL = try context.urlForTool(named: tool)
+    process.executableURL = try urlForTool(tool)
     process.arguments = arguments
     process.standardOutput = successPipe
 

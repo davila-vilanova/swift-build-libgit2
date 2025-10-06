@@ -1,3 +1,4 @@
+import Dependencies
 import Foundation
 
 enum Platform: String, CaseIterable {
@@ -32,36 +33,36 @@ struct Target {
         self.outputBinaryNames = outputBinaryNames ?? [libraryName + ".a"]
     }
 
-    func baseWorkDirectoryURL(_ context: Context) -> URL {
-        context.workDirectoryURL.appending(component: libraryName)
+    var baseWorkDirectoryURL: URL {
+        @Dependency(\.workDirectoryURL) var wd
+        return wd.appending(component: libraryName)
     }
 
-    func sourceDirURL(_ context: Context) -> URL {
-        baseWorkDirectoryURL(context).appending(component: "src")
+    var sourceDirURL: URL {
+        baseWorkDirectoryURL.appending(component: "src")
     }
 
     // TODO: maybe rename
-    func workDirectoryURL(_ context: Context) -> URL {
-        baseWorkDirectoryURL(context)
+    var workDirectoryURL: URL {
+        baseWorkDirectoryURL
             .appending(component: Self.filesystemFriendlyName(platform, architectures))
     }
 
-    func buildDirURL(_ context: Context) -> URL {
-        workDirectoryURL(context).appending(component: "build")
+    var buildDirURL: URL {
+        workDirectoryURL.appending(component: "build")
     }
 
-    func logURL(_ context: Context) -> URL {
-        workDirectoryURL(context).appending(component: "build.log")
+    var logURL: URL {
+        workDirectoryURL.appending(component: "build.log")
     }
 
-    func installDirURL(_ context: Context) -> URL {
-        workDirectoryURL(context).appending(component: "install")
+    var installDirURL: URL {
+        workDirectoryURL.appending(component: "install")
     }
 
-    func installBinaryURLs(_ context: Context) -> [URL] {
+    var installBinaryURLs: [URL] {
         outputBinaryNames.map {
-            installDirURL(context)
-                .appending(components: binariesDirRelativePath, $0)
+            installDirURL.appending(components: $0, binariesDirRelativePath, $0)
         }
     }
 

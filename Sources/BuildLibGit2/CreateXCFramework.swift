@@ -1,13 +1,15 @@
+import Dependencies
 import Foundation
 
 @discardableResult
 func createXCFramework(
     named frameworkName: String,
-    with context: Context,
     binaries: [URL],
     headers: URL,
     placeInto frameworksDir: URL,
 ) throws -> URL {
+    @Dependency(\.urlForTool) var urlForTool
+
     let frameworkURL = frameworksDir.appending(component: "\(frameworkName).xcframework")
     if FileManager.default.fileExists(atPath: frameworkURL.path) {
         try FileManager.default.removeItem(at: frameworkURL)
@@ -17,7 +19,7 @@ func createXCFramework(
     print("Creating \(frameworkURL.path())\nfrom binaries at \(binaries)")
 
     let xcodebuild = Process()
-    xcodebuild.executableURL = try context.urlForTool(named: "xcodebuild")
+    xcodebuild.executableURL = try urlForTool("xcodebuild")
     xcodebuild.arguments =
         ["-create-xcframework"]
         + libraryArguments(binaries: binaries, headers: headers)
@@ -78,15 +80,15 @@ func libraryArguments(binaries: [URL], headers: URL) -> [String] {
     }
 }
 
-func packageFrameworksDirectory(
-    for context: Context
-) throws -> URL {
-    let frameworksDir = context.outputDirectoryURL.appending(component: "Frameworks")
-    if !FileManager.default.fileExists(atPath: frameworksDir.path) {
-        try FileManager.default.createDirectory(
-            at: frameworksDir,
-            withIntermediateDirectories: true
-        )
-    }
-    return frameworksDir
-}
+// func packageFrameworksDirectory() throws -> URL {
+//     @Dependency(\.outputDirectoryURL) var outputDirectoryURL
+
+//     let frameworksDir = outputDirectoryURL.appending(component: "Frameworks")
+//     if !FileManager.default.fileExists(atPath: frameworksDir.path) {
+//         try FileManager.default.createDirectory(
+//             at: frameworksDir,
+//             withIntermediateDirectories: true
+//         )
+//     }
+//     return frameworksDir
+// }

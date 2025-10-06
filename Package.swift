@@ -12,7 +12,8 @@ let package = Package(
         .executable(name: "BuildLibGit2", targets: ["BuildLibGit2"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0")
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
+        .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.10.0"),
     ],
     targets: [
         .plugin(
@@ -38,7 +39,8 @@ let package = Package(
         .executableTarget(
             name: "BuildLibGit2",
             dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser")
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "Dependencies", package: "swift-dependencies"),
             ]),
     ]
 )

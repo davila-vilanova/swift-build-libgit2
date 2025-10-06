@@ -1,5 +1,6 @@
-import ArgumentParser
 import Foundation
+import ArgumentParser
+import Dependencies
 
 private let workDirectoryName = "build_libgit2_work"
 private let outputDirectoryName = "build_libgit2_output"
@@ -15,34 +16,32 @@ struct Build: ParsableCommand {
         guard let workingDirectory = ProcessInfo.processInfo.environment["PWD"] else {
             throw Error("Cannot parse working directory from environment")
         }
-
         let workingDirectoryURL = URL(filePath: workingDirectory, directoryHint: .isDirectory)
 
-        let context = Context(
-            workDirectoryURL: workingDirectoryURL.appending(component: workDirectoryName),
-            outputFrameworksDirectoryURL: workingDirectoryURL.appending(
-                component: outputDirectoryName)
-        )
-
-        if libraries.contains(.openssl) {
-            let targets = Target.targets(
-                forLibraryNamed: "openssl",
-                platforms: platforms,
-                architectures: architectures,
-                binariesLibRelativePath: "lib",
-                outputBinaryNames: ["libssl", "libcrypto"],
-            )
-            for t in targets {
-                try buildOpenSSL(context: context, target: t)
+        try withDependencies {
+            $0.workDirectoryURL = workingDirectoryURL.appending(component: workDirectoryName)
+            $0.outputDirectoryURL = workingDirectoryURL.appending(component: outputDirectoryName)
+        } operation: {
+            if libraries.contains(.openssl) {
+                let targets = Target.targets(
+                    forLibraryNamed: "openssl",
+                    platforms: platforms,
+                    architectures: architectures,
+                    binariesLibRelativePath: "lib",
+                    outputBinaryNames: ["libssl", "libcrypto"],
+                )
+                for t in targets {
+                    try buildOpenSSL(target: t)
+                }
+                try createOpenSSLXCFrameworks(targets: targets)
             }
-            try createOpenSSLXCFrameworks(targets: targets, context: context)
+            //        if libraries.contains(.libssh2) {
+            //            try buildLibSSH2(for: targets, with: context)
+            //        }
+            //        if libraries.contains(.libgit2) {
+            //            try buildLibGit2(for: targets, with: context)
+            //        }
         }
-//        if libraries.contains(.libssh2) {
-//            try buildLibSSH2(for: targets, with: context)
-//        }
-//        if libraries.contains(.libgit2) {
-//            try buildLibGit2(for: targets, with: context)
-//        }
     }
 }
 

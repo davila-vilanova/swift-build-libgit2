@@ -1,9 +1,8 @@
+import Dependencies
 import Foundation
 
-func buildOpenSSL(
-    context: Context,
-    target: Target,  // a target per platform, with potentially multiple archs
-) throws {
+// Target: a target per platform, with potentially multiple archs
+func buildOpenSSL(target: Target) throws {
     for singleArchTarget in target.splitIntoArchitectures() {
         let platform = singleArchTarget.platform
         let architectures = singleArchTarget.architectures
@@ -13,25 +12,18 @@ func buildOpenSSL(
         )
         let architecture = architectures.first!
 
-        let sourceDirURL = singleArchTarget.sourceDirURL(context)
-        let buildDirURL = singleArchTarget.buildDirURL(context)
-        let installDirURL = singleArchTarget.installDirURL(context)
+        let sourceDirURL = singleArchTarget.sourceDirURL
+        let buildDirURL = singleArchTarget.buildDirURL
+        let installDirURL = singleArchTarget.installDirURL
 
         let logFileHandle = try prepareBuild(
             libraryName: singleArchTarget.libraryName,
             buildDirURL: buildDirURL,
             installDirURL: installDirURL,
-            context: context,
-            cloneRepository: {
-                try cloneRepository(
-                    into: sourceDirURL,
-                    context: context
-                )
-            },
+            cloneRepository: { try cloneRepository(into: sourceDirURL) },
         )
 
         try configureBuild(
-            with: context,
             platform: platform,
             architecture: architecture,
             srcURL: sourceDirURL,
@@ -40,12 +32,10 @@ func buildOpenSSL(
             loggingTo: logFileHandle
         )
         try runMake(
-            with: context,
             in: buildDirURL,
             loggingTo: logFileHandle
         )
         try runMakeInstall(
-            with: context,
             in: buildDirURL,
             loggingTo: logFileHandle
         )
@@ -57,60 +47,19 @@ func buildOpenSSL(
     }
 
     if target.architectures.count > 1 {
-        try combineArchitectures(for: target, context: context)
+        try combineArchitectures(for: target)
     }
 }
 
-private func combineArchitectures(for target: Target, context: Context) throws {
-    let fileManager = FileManager.default
-
-    let destinationBinaryDir = target.installDirURL(context)
-        .appending(component: target.binariesDirRelativePath)
-    if fileManager.fileExists(atPath: destinationBinaryDir.path()) {
-        try fileManager.removeItem(at: destinationBinaryDir)
-    }
-    try fileManager.createDirectory(at: destinationBinaryDir, withIntermediateDirectories: true)
-
-    func combineArchitecturesForBinary(named binaryName: String) throws {
-        let destinationFatBinary =
-            destinationBinaryDir
-            .appending(component: binaryName + ".a")
-
-        let lipo = Process()
-        lipo.executableURL = try context.urlForTool(named: "lipo")
-        lipo.arguments =
-            [
-                "-create"
-            ]
-            + target.splitIntoArchitectures().map {
-                $0.installDirURL(context)
-                    .appending(components: "lib", "\(binaryName).a")
-                    .path()
-            } + [
-                "-output",
-                destinationFatBinary.path(),
-            ]
-        try runProcess(lipo, .inheritFromProcess)  // TODO: what to do with output here? Separate log file? stdout?
-    }
-
-    for name in ["libssl", "libcrypto"] {
-        try combineArchitecturesForBinary(named: name)
-    }
-
-    // TODO: could return "combined targets"
-}
-
-private func cloneRepository(into srcURL: URL, context: Context) throws {
+private func cloneRepository(into srcURL: URL) throws {
     try cloneRepository(
         at: "https://github.com/openssl/openssl.git",
-        with: context,
         tag: "openssl-3.5.1",
         into: srcURL
     )
 }
 
 private func configureBuild(
-    with context: Context,
     platform: Platform,
     architecture: Architecture,
     srcURL: URL,
@@ -150,13 +99,13 @@ private func targetName(for platform: Platform, architecture: Architecture) thro
 }
 
 private func runMake(
-    with context: Context,
     in buildDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws {
+    @Dependency(\.urlForTool) var urlForTool
     let make = Process()
     make.currentDirectoryURL = buildDir
-    make.executableURL = try context.urlForTool(named: "make")
+    make.executableURL = try urlForTool("make")
     make.arguments = [
         "-j", "\(getSystemCPUCount())",
         "build_libs",
@@ -165,13 +114,13 @@ private func runMake(
 }
 
 private func runMakeInstall(
-    with context: Context,
     in buildDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws {
+    @Dependency(\.urlForTool) var urlForTool
     let makeInstall = Process()
     makeInstall.currentDirectoryURL = buildDir
-    makeInstall.executableURL = try context.urlForTool(named: "make")
+    makeInstall.executableURL = try urlForTool("make")
     makeInstall.arguments = ["install_sw"]
     try runProcess(
         makeInstall,
@@ -179,11 +128,52 @@ private func runMakeInstall(
         name: "make install_sw")
 }
 
+private func combineArchitectures(for target: Target) throws {
+    @Dependency(\.urlForTool) var urlForTool
+    let fileManager = FileManager.default
+
+    let destinationBinaryDir = target.installDirURL
+        .appending(component: target.binariesDirRelativePath)
+    if fileManager.fileExists(atPath: destinationBinaryDir.path()) {
+        try fileManager.removeItem(at: destinationBinaryDir)
+    }
+    try fileManager.createDirectory(at: destinationBinaryDir, withIntermediateDirectories: true)
+
+    func combineArchitecturesForBinary(named binaryName: String) throws {
+        let destinationFatBinary =
+            destinationBinaryDir
+            .appending(component: binaryName + ".a")
+
+        let lipo = Process()
+        lipo.executableURL = try urlForTool("lipo")
+        lipo.arguments =
+            [
+                "-create"
+            ]
+            + target.splitIntoArchitectures().map {
+                $0.installDirURL
+                    .appending(components: "lib", "\(binaryName).a")
+                    .path()
+            } + [
+                "-output",
+                destinationFatBinary.path(),
+            ]
+        try runProcess(lipo, .inheritFromProcess)  // TODO: what to do with output here? Separate log file? stdout?
+    }
+
+    for name in ["libssl", "libcrypto"] {
+        try combineArchitecturesForBinary(named: name)
+    }
+
+    // TODO: could return "combined targets"
+}
+
 @discardableResult
 func createOpenSSLXCFrameworks(
     targets: [Target],  // a target for each platform
-    context: Context,
 ) throws -> [URL] {
+    @Dependency(\.outputDirectoryURL) var outputDirectoryURL
+
     // at least one target required
     guard let firstTarget = targets.first else {
         return []
@@ -193,7 +183,7 @@ func createOpenSSLXCFrameworks(
     let namesAndBinaries = ["libssl", "libcrypto"].map { binaryName in
         // I want the binaries for this binaryName and for each platform and combined archs (e.g. for each target)
         let binaries = targets.map {
-            $0.installDirURL(context)
+            $0.installDirURL
                 .appending(components: "lib", binaryName + ".a")
         }
         return (binaryName, binaries)
@@ -201,16 +191,15 @@ func createOpenSSLXCFrameworks(
 
     // The headers each target points to are equivalent
     // but need to get the headers from a single-architecture build
-    let headers = firstTarget.splitIntoArchitectures().first!.installDirURL(context).appending(
+    let headers = firstTarget.splitIntoArchitectures().first!.installDirURL.appending(
         components: "include", "openssl")
 
     return try namesAndBinaries.map { (name, binaries) -> URL in
         try createXCFramework(
             named: name,
-            with: context,
             binaries: binaries,
             headers: headers,
-            placeInto: context.outputDirectoryURL
+            placeInto: outputDirectoryURL
         )
     }
 }

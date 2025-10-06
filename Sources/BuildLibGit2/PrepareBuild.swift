@@ -15,7 +15,6 @@ func prepareBuild(
     //    getInstallDir: (Platform, [Architecture]) -> URL,
     buildDirURL: URL,
     installDirURL: URL,
-    context: Context,
     // There should be a single platform per build
     //    platform: Platform,
     //    architectures: [Architecture],
