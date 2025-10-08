@@ -122,34 +122,24 @@ private func runMakeInstall(
 
 private func combineArchitectures(for target: Target) throws {
     @Dependency(\.urlForTool) var urlForTool
-    let fileManager = FileManager.default
+    @Dependency(\.createDirectories) var createDirectories
+    @Dependency(\.copyFileOrDirectory) var copyDirectory
 
     let destinationBinaryDir = target.installDirURL
         .appending(component: target.binariesDirRelativePath)
     let destinationHeadersDir = target.installDirURL
         .appending(component: target.headersDirRelativePath)
 
-    for dir in [destinationBinaryDir, destinationHeadersDir] {
-        if fileManager.fileExists(atPath: dir.path()) {
-            try fileManager.removeItem(at: dir)
-        }
-    }
-
-    try fileManager.createDirectory(
-        at: destinationBinaryDir, withIntermediateDirectories: true
-    )
-
-    var d = destinationHeadersDir
-    d.deleteLastPathComponent()
-    try fileManager.createDirectory(
-        at: d, withIntermediateDirectories: true
+    try createDirectories(
+        destinationBinaryDir,
+        destinationHeadersDir.deletingLastPathComponent()
     )
 
     // Copy headers
     let oneBuiltTarget = target.splitIntoArchitectures().first!
     let sourceHeadersDir = oneBuiltTarget.installDirURL
         .appending(component: oneBuiltTarget.headersDirRelativePath)
-    try fileManager.copyItem(at: sourceHeadersDir, to: destinationHeadersDir)
+    try copyDirectory(sourceHeadersDir, destinationHeadersDir)
 
     func combineArchitecturesForBinary(named binaryName: String) throws {
         let destinationFatBinary =

@@ -9,11 +9,10 @@ func createXCFramework(
     placeInto frameworksDir: URL,
 ) throws -> URL {
     @Dependency(\.urlForTool) var urlForTool
+    @Dependency(\.removeFileOrDirectory) var removeDirectory
 
     let frameworkURL = frameworksDir.appending(component: "\(frameworkName).xcframework")
-    if FileManager.default.fileExists(atPath: frameworkURL.path) {
-        try FileManager.default.removeItem(at: frameworkURL)
-    }
+    try removeDirectory(frameworkURL)
 
     let frameworkPath = frameworkURL.path()
     print("Creating \(frameworkURL.path())\nfrom binaries at \(binaries)")

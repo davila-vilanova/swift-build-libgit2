@@ -7,8 +7,9 @@ func cloneRepository(
     into destinationURL: URL
 ) throws {
     @Dependency(\.urlForTool) var urlForTool
+    @Dependency(\.fileOrDirectoryExists) var fileOrDirectoryExists
     // If the repository already exists in the work directory, we can skip cloning.
-    guard !FileManager.default.fileExists(atPath: destinationURL.path) else {
+    guard !fileOrDirectoryExists(destinationURL) else {
         print("Repository already exists at \(destinationURL.path). Skipping clone.")
         return
     }

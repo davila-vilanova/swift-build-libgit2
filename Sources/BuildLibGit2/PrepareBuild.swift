@@ -1,21 +1,16 @@
+import Dependencies
 import Foundation
 
 func prepareBuild(for target: Target) throws -> FileHandle {
+    @Dependency(\.createDirectories) var createDirectories
+    @Dependency(\.createFile) var createFile
+
     try checkValidLibraryName(target.libraryName)
 
-    let fileManager = FileManager.default
-
-    for dir in [target.installDirURL, target.buildDirURL] {
-        if fileManager.fileExists(atPath: dir.path()) {
-            try fileManager.removeItem(at: dir)
-        }
-        try fileManager.createDirectory(
-            at: dir, withIntermediateDirectories: true
-        )
-    }
+    try createDirectories(target.installDirURL, target.buildDirURL)
 
     let logFile = target.buildDirURL.appending(component: "build").appendingPathExtension("log")
-    fileManager.createFile(atPath: logFile.path(), contents: Data())
+    try createFile(logFile)
     print("Will log to \(logFile.path())")
     let logFileHandle = try FileHandle(forUpdating: logFile)
 
