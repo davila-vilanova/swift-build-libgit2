@@ -2,12 +2,14 @@ import Foundation
 import Dependencies
 
 func buildLibSSH2(target: Target, openSSLTarget: Target) throws {
+    @Dependency(\.cloneRepository) var cloneRepository
+
     let logFileHandle = try prepareBuild(for: target)
 
     try cloneRepository(
-        at: "https://github.com/libssh2/libssh2.git",
-        tag: "libssh2-1.11.1",
-        into: target.sourceDirURL,
+        "https://github.com/libssh2/libssh2.git",
+        "libssh2-1.11.1",
+        target.sourceDirURL,
     )
 
     try configureBuild(

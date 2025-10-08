@@ -3,6 +3,8 @@ import Foundation
 
 // Target: a target per platform, with potentially multiple archs
 func buildOpenSSL(target: Target) throws {
+    @Dependency(\.cloneRepository) var cloneRepository
+
     for singleArchTarget in target.splitIntoArchitectures() {
         let platform = singleArchTarget.platform
         let architectures = singleArchTarget.architectures
@@ -18,9 +20,9 @@ func buildOpenSSL(target: Target) throws {
 
         let logFileHandle = try prepareBuild(for: singleArchTarget)
         try cloneRepository(
-            at: "https://github.com/openssl/openssl.git",
-            tag: "openssl-3.5.1",
-            into: target.sourceDirURL,
+            "https://github.com/openssl/openssl.git",
+            "openssl-3.5.1",
+            target.sourceDirURL,
         )
 
         try configureBuild(

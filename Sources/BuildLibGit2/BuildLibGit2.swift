@@ -6,12 +6,14 @@ func buildLibGit2(
     openSSLTarget: Target,
     libSSH2Target: Target,
 ) throws {
+    @Dependency(\.cloneRepository) var cloneRepository
+
     let logFileHandle = try prepareBuild(for: target)
 
     try cloneRepository(
-        at: "https://github.com/libgit2/libgit2.git",
-        tag: "v1.9.1",
-        into: target.sourceDirURL
+        "https://github.com/libgit2/libgit2.git",
+        "v1.9.1",
+        target.sourceDirURL
     )
 
     try configureBuild(

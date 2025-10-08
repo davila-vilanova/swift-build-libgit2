@@ -1,7 +1,18 @@
 import Dependencies
 import Foundation
 
-func cloneRepository(
+extension DependencyValues {
+    public var cloneRepository: @Sendable (String, String, URL) throws -> Void {
+        get { self[CloneRepositoryKey.self] }
+        set { self[CloneRepositoryKey.self] = newValue }
+    }
+}
+
+private enum CloneRepositoryKey: DependencyKey {
+    static let liveValue: @Sendable (String, String, URL) throws -> Void = cloneRepository(at:tag:into:)
+}
+
+private func cloneRepository(
     at remoteURLString: String,
     tag: String,
     into destinationURL: URL
