@@ -16,7 +16,7 @@ func buildOpenSSL(target: Target) throws {
         let buildDirURL = singleArchTarget.buildDirURL
         let installDirURL = singleArchTarget.installDirURL
 
-        let logFileHandle = try prepareBuild(for: target)
+        let logFileHandle = try prepareBuild(for: singleArchTarget)
         try cloneRepository(
             at: "https://github.com/openssl/openssl.git",
             tag: "openssl-3.5.1",
