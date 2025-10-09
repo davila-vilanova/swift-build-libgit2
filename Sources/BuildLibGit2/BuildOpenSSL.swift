@@ -4,6 +4,7 @@ import Foundation
 // Target: a target per platform, with potentially multiple archs
 func buildOpenSSL(target: Target) throws {
     @Dependency(\.cloneRepository) var cloneRepository
+    @Dependency(\.runProcess) var runProcess
 
     for singleArchTarget in target.splitIntoArchitectures() {
         let platform = singleArchTarget.platform
@@ -48,8 +49,7 @@ func buildOpenSSL(target: Target) throws {
                 in: buildDirURL,
                 loggingTo: logFileHandle
             ),
-            .mergeOutputError(.fileHandle(logFileHandle)),
-            name: "make install_sw")
+            .mergeOutputError(.fileHandle(logFileHandle)))
 
         print(
             "OpenSSL libraries for \(platform), \(architecture) "
@@ -131,6 +131,7 @@ private func combineArchitectures(for target: Target) throws {
     @Dependency(\.urlForTool) var urlForTool
     @Dependency(\.createDirectories) var createDirectories
     @Dependency(\.copyFileOrDirectory) var copyDirectory
+    @Dependency(\.runProcess) var runProcess
 
     let destinationBinaryDir = target.installDirURL
         .appending(component: target.binariesDirRelativePath)

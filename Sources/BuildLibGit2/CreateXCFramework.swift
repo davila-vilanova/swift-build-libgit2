@@ -10,6 +10,7 @@ func createXCFramework(
 ) throws -> URL {
     @Dependency(\.urlForTool) var urlForTool
     @Dependency(\.removeFileOrDirectory) var removeDirectory
+    @Dependency(\.runProcess) var runProcess
 
     let frameworkURL = frameworksDir.appending(component: "\(frameworkName).xcframework")
     try removeDirectory(frameworkURL)
@@ -68,7 +69,7 @@ func createXCFramework(
 ///    "-headers",
 ///    "products/iOS/usr/local/include"
 /// ]```
-func libraryArguments(binaries: [URL], headers: URL) -> [String] {
+private func libraryArguments(binaries: [URL], headers: URL) -> [String] {
     binaries.flatMap { binary in
         [
             "-library",

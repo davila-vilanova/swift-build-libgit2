@@ -3,12 +3,12 @@ import Dependencies
 
 extension DependencyValues {
     /// A dependency that produces the work directory URL.
-    public var workDirectoryURL: URL {
+     var workDirectoryURL: URL {
         get { self[WorkDirectoryURLKey.self] }
         set { self[WorkDirectoryURLKey.self] = newValue }
     }
 
-    public var outputDirectoryURL: URL {
+    var outputDirectoryURL: URL {
         get { self[OutputDirectoryURLKey.self] }
         set { self[OutputDirectoryURLKey.self] = newValue }
     }

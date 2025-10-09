@@ -41,6 +41,8 @@ private func runToolForOutput(
     -> String
 {
     @Dependency(\.urlForTool) var urlForTool
+    @Dependency(\.runProcess) var runProcess
+
     let successPipe = Pipe()
 
     let process = Process()

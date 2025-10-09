@@ -3,27 +3,27 @@ import Foundation
 
 extension DependencyValues {
     /// Deletes the directory if it exists previous to creating it
-    public var createDirectories: @Sendable (URL...) throws -> Void {
+    var createDirectories: @Sendable (URL...) throws -> Void {
         get { self[CreateDirectoriesKey.self] }
         set { self[CreateDirectoriesKey.self] = newValue }
     }
 
-    public var copyFileOrDirectory: @Sendable (URL, URL) throws -> Void {
+    var copyFileOrDirectory: @Sendable (URL, URL) throws -> Void {
         get { self[CopyFileOrDirectoryKey.self] }
         set { self[CopyFileOrDirectoryKey.self] = newValue }
     }
 
-    public var fileOrDirectoryExists: @Sendable (URL) -> Bool {
+    var fileOrDirectoryExists: @Sendable (URL) -> Bool {
         get { self[FileExistsKey.self] }
         set { self[FileExistsKey.self] = newValue }
     }
 
-    public var removeFileOrDirectory: @Sendable (URL) throws -> Void {
+    var removeFileOrDirectory: @Sendable (URL) throws -> Void {
         get { self[RemoveFileOrDirectoryKey.self] }
         set { self[RemoveFileOrDirectoryKey.self] = newValue }
     }
 
-    public var createFile: @Sendable (URL) throws -> Void {
+    var createFile: @Sendable (URL) throws -> Void {
         get { self[CreateFileKey.self] }
         set { self[CreateFileKey.self] = newValue }
     }

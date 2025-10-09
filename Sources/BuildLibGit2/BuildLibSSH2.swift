@@ -3,6 +3,7 @@ import Dependencies
 
 func buildLibSSH2(target: Target, openSSLTarget: Target) throws {
     @Dependency(\.cloneRepository) var cloneRepository
+    @Dependency(\.runProcess) var runProcess
 
     let logFileHandle = try prepareBuild(for: target)
 
@@ -18,8 +19,7 @@ func buildLibSSH2(target: Target, openSSLTarget: Target) throws {
             openSSLTarget: openSSLTarget,
             loggingTo: logFileHandle,
         ),
-        .mergeOutputError(.fileHandle(logFileHandle)),
-        name: "CMake configuration"
+        .mergeOutputError(.fileHandle(logFileHandle))
     )
 
     try runProcess(
@@ -28,7 +28,6 @@ func buildLibSSH2(target: Target, openSSLTarget: Target) throws {
             loggingTo: logFileHandle
         ),
         .mergeOutputError(.fileHandle(logFileHandle)),
-        name: "CMake build"
     )
 
     print("libssh2 library can be found at \(target.installDirURL.path())")

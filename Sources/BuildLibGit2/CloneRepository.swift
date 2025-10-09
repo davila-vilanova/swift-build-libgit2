@@ -2,7 +2,7 @@ import Dependencies
 import Foundation
 
 extension DependencyValues {
-    public var cloneRepository: @Sendable (String, String, URL) throws -> Void {
+    var cloneRepository: @Sendable (String, String, URL) throws -> Void {
         get { self[CloneRepositoryKey.self] }
         set { self[CloneRepositoryKey.self] = newValue }
     }
@@ -19,6 +19,7 @@ private func cloneRepository(
 ) throws {
     @Dependency(\.urlForTool) var urlForTool
     @Dependency(\.fileOrDirectoryExists) var fileOrDirectoryExists
+    @Dependency(\.runProcess) var runProcess
     // If the repository already exists in the work directory, we can skip cloning.
     guard !fileOrDirectoryExists(destinationURL) else {
         print("Repository already exists at \(destinationURL.path). Skipping clone.")

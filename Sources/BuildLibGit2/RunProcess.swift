@@ -1,21 +1,31 @@
+import Dependencies
 import Foundation
+
+extension DependencyValues {
+    var runProcess: @Sendable (Process, OutputMode) throws -> Void {
+        get { self[RunProcessKey.self] }
+        set { self[RunProcessKey.self] = newValue }
+    }
+}
+
+private enum RunProcessKey: DependencyKey {
+    static let liveValue: @Sendable (Process, OutputMode) throws -> Void = runProcess
+}
 
 /// Runs a child process in the following way:
 /// - redirects stdout to a pipe of choice or /dev/null
 /// - caches stderr, discards it if the process succeeds, or includes it in thrown exception if it fails
 /// - awaits process until it completes
 // TODO: rewrite doc
-@discardableResult
-func runProcess(
+private func runProcess(
     _ process: Process,
     _ outputMode: OutputMode,
-    name explicitName: String? = nil
-) throws -> Process {
+) throws {
     if outputMode != .inheritFromProcess {
         process.standardOutput = try outputMode.stdout?.wrappedValue ?? nullFileHandle()
         process.standardError = outputMode.stderr?.wrappedValue
     }
-    let processName = explicitName ?? process.executableURL?.lastPathComponent ?? "process"
+    let processName = process.executableURL?.lastPathComponent ?? "process"
 
     print("Running \(processName)...")
 
@@ -23,17 +33,19 @@ func runProcess(
     process.waitUntilExit()
 
     if process.terminationStatus != 0 {
-        let errorMessage = if let tempErrorPipe = outputMode.tempErrorPipe {
-            String(data: tempErrorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "Unknown error"
-        } else {
-            "See output for details"
-        }
+        let errorMessage =
+            if let tempErrorPipe = outputMode.tempErrorPipe {
+                String(
+                    data: tempErrorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
+                    ?? "Unknown error"
+            } else {
+                "See output for details"
+            }
 
         throw Error("Failed to run \(processName): \(errorMessage).")
     }
 
     print("\(processName) completed successfully.")
-    return process
 }
 
 enum OutputMode: Equatable {
@@ -53,27 +65,27 @@ enum OutputMode: Equatable {
 
     var stdout: OutputChannel? {
         switch self {
-        case let .separateOutputError(output: ch, _): ch
-        case let .mergeOutputError(ch): ch
-        case let .stdoutOnly(output: ch, _): ch
+        case .separateOutputError(output: let ch, _): ch
+        case .mergeOutputError(let ch): ch
+        case .stdoutOnly(output: let ch, _): ch
         case .noOutput, .inheritFromProcess: nil
         }
     }
 
     var stderr: OutputChannel? {
         switch self {
-        case let .separateOutputError(_, error: ch): ch
-        case let .mergeOutputError(ch): ch
-        case let .stdoutOnly(_, tempError: pipe): .pipe(pipe)
-        case let .noOutput(tempError: pipe): .pipe(pipe)
+        case .separateOutputError(_, error: let ch): ch
+        case .mergeOutputError(let ch): ch
+        case .stdoutOnly(_, tempError: let pipe): .pipe(pipe)
+        case .noOutput(tempError: let pipe): .pipe(pipe)
         case .inheritFromProcess: nil
         }
     }
 
     var tempErrorPipe: Pipe? {
         switch self {
-        case let .stdoutOnly(_, tempError: pipe): pipe
-        case let .noOutput(tempError: pipe): pipe
+        case .stdoutOnly(_, tempError: let pipe): pipe
+        case .noOutput(tempError: let pipe): pipe
         default: nil
         }
     }
@@ -85,8 +97,8 @@ enum OutputChannel: Equatable {
 
     var wrappedValue: Any {
         switch self {
-        case let .pipe(value): value
-        case let .fileHandle(value): value
+        case .pipe(let value): value
+        case .fileHandle(let value): value
         }
     }
 }

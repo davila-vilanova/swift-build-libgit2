@@ -7,6 +7,7 @@ func buildLibGit2(
     libSSH2Target: Target,
 ) throws {
     @Dependency(\.cloneRepository) var cloneRepository
+    @Dependency(\.runProcess) var runProcess
 
     let logFileHandle = try prepareBuild(for: target)
 
@@ -23,8 +24,7 @@ func buildLibGit2(
             libSSH2Target: libSSH2Target,
             loggingTo: logFileHandle,
         ),
-        .mergeOutputError(.fileHandle(logFileHandle)),
-        name: "CMake configuration"
+        .mergeOutputError(.fileHandle(logFileHandle))
     )
 
     try runProcess(
@@ -32,8 +32,7 @@ func buildLibGit2(
             in: target.buildDirURL,
             loggingTo: logFileHandle
         ),
-        .mergeOutputError(.fileHandle(logFileHandle)),
-        name: "CMake build"
+        .mergeOutputError(.fileHandle(logFileHandle))
     )
 }
 

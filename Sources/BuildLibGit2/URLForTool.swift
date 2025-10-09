@@ -2,7 +2,7 @@ import Dependencies
 import Foundation
 
 extension DependencyValues {
-    public var urlForTool: @Sendable (String) throws -> URL {
+    var urlForTool: @Sendable (String) throws -> URL {
         get { self[URLForToolKey.self] }
         set { self[URLForToolKey.self] = newValue }
     }
