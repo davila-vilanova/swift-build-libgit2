@@ -16,25 +16,33 @@ func buildLibGit2(
         target.sourceDirURL
     )
 
-    try configureBuild(
-        target: target,
-        openSSLTarget: openSSLTarget,
-        libSSH2Target: libSSH2Target,
-        loggingTo: logFileHandle,
+    try runProcess(
+        try configureLibGit2Build(
+            target: target,
+            openSSLTarget: openSSLTarget,
+            libSSH2Target: libSSH2Target,
+            loggingTo: logFileHandle,
+        ),
+        .mergeOutputError(.fileHandle(logFileHandle)),
+        name: "CMake configuration"
     )
 
-    try cmakeBuildAndInstall(
-        in: target.buildDirURL,
-        loggingTo: logFileHandle
+    try runProcess(
+        try cmakeBuildAndInstall(
+            in: target.buildDirURL,
+            loggingTo: logFileHandle
+        ),
+        .mergeOutputError(.fileHandle(logFileHandle)),
+        name: "CMake build"
     )
 }
 
-private func configureBuild(
+func configureLibGit2Build(
     target: Target,
     openSSLTarget: Target,
     libSSH2Target: Target,
     loggingTo logFileHandle: FileHandle,
-) throws {
+) throws -> Process {
     @Dependency(\.urlForTool) var urlForTool
 
     assert(openSSLTarget.platform == target.platform)
@@ -80,10 +88,7 @@ private func configureBuild(
     // cmake.environment = [
     //     "OPENSSL_ROOT_DIR": openSSLLibsDir.path()
     // ]
-
-    try runProcess(
-        cmake, .mergeOutputError(.fileHandle(logFileHandle)), name: "CMake configuration"
-    )
+    return cmake
 }
 
 @discardableResult

@@ -4,7 +4,7 @@ import Foundation
 func cmakeBuildAndInstall(
     in buildDir: URL,
     loggingTo logFileHandle: FileHandle
-) throws {
+) throws -> Process {
     @Dependency(\.urlForTool) var urlForTool
 
     let cmake = Process()
@@ -16,8 +16,5 @@ func cmakeBuildAndInstall(
         "--target", "install",
         "--parallel", "\(getSystemCPUCount())",
     ]
-
-    try runProcess(
-        cmake, .mergeOutputError(.fileHandle(logFileHandle)), name: "CMake build"
-    )
+    return cmake
 }

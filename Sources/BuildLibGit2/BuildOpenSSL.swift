@@ -25,22 +25,31 @@ func buildOpenSSL(target: Target) throws {
             target.sourceDirURL,
         )
 
-        try configureBuild(
-            platform: platform,
-            architecture: architecture,
-            srcURL: sourceDirURL,
-            buildURL: buildDirURL,
-            installURL: installDirURL,
-            loggingTo: logFileHandle
-        )
-        try runMake(
-            in: buildDirURL,
-            loggingTo: logFileHandle
-        )
-        try runMakeInstall(
-            in: buildDirURL,
-            loggingTo: logFileHandle
-        )
+        try runProcess(
+            try configureOpenSSLBuild(
+                platform: platform,
+                architecture: architecture,
+                srcURL: sourceDirURL,
+                buildURL: buildDirURL,
+                installURL: installDirURL,
+                loggingTo: logFileHandle
+            ),
+            .mergeOutputError(.fileHandle(logFileHandle)))
+
+        try runProcess(
+            try runMake(
+                in: buildDirURL,
+                loggingTo: logFileHandle
+            ),
+            .mergeOutputError(.fileHandle(logFileHandle)))
+
+        try runProcess(
+            try runMakeInstall(
+                in: buildDirURL,
+                loggingTo: logFileHandle
+            ),
+            .mergeOutputError(.fileHandle(logFileHandle)),
+            name: "make install_sw")
 
         print(
             "OpenSSL libraries for \(platform), \(architecture) "
@@ -53,14 +62,14 @@ func buildOpenSSL(target: Target) throws {
     }
 }
 
-private func configureBuild(
+func configureOpenSSLBuild(
     platform: Platform,
     architecture: Architecture,
     srcURL: URL,
     buildURL: URL,
     installURL: URL,
     loggingTo logFileHandle: FileHandle,
-) throws {
+) throws -> Process {
     let configure = Process()
     configure.currentDirectoryURL = buildURL
     configure.executableURL = srcURL.appending(component: "Configure")
@@ -75,8 +84,7 @@ private func configureBuild(
             "zlib",
             "--prefix=\(installURL.path(percentEncoded: true))",
         ]
-
-    try runProcess(configure, .mergeOutputError(.fileHandle(logFileHandle)))
+    return configure
 }
 
 private func targetName(for platform: Platform, architecture: Architecture) throws -> String {
@@ -95,7 +103,7 @@ private func targetName(for platform: Platform, architecture: Architecture) thro
 private func runMake(
     in buildDir: URL,
     loggingTo logFileHandle: FileHandle
-) throws {
+) throws -> Process {
     @Dependency(\.urlForTool) var urlForTool
     let make = Process()
     make.currentDirectoryURL = buildDir
@@ -104,22 +112,19 @@ private func runMake(
         "-j", "\(getSystemCPUCount())",
         "build_libs",
     ]
-    try runProcess(make, .mergeOutputError(.fileHandle(logFileHandle)))
+    return make
 }
 
 private func runMakeInstall(
     in buildDir: URL,
     loggingTo logFileHandle: FileHandle
-) throws {
+) throws -> Process {
     @Dependency(\.urlForTool) var urlForTool
     let makeInstall = Process()
     makeInstall.currentDirectoryURL = buildDir
     makeInstall.executableURL = try urlForTool("make")
     makeInstall.arguments = ["install_sw"]
-    try runProcess(
-        makeInstall,
-        .mergeOutputError(.fileHandle(logFileHandle)),
-        name: "make install_sw")
+    return makeInstall
 }
 
 private func combineArchitectures(for target: Target) throws {

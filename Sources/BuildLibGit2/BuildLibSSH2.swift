@@ -12,25 +12,33 @@ func buildLibSSH2(target: Target, openSSLTarget: Target) throws {
         target.sourceDirURL,
     )
 
-    try configureBuild(
-        target: target,
-        openSSLTarget: openSSLTarget,
-        loggingTo: logFileHandle,
+    try runProcess(
+        try configureLibSSH2Build(
+            target: target,
+            openSSLTarget: openSSLTarget,
+            loggingTo: logFileHandle,
+        ),
+        .mergeOutputError(.fileHandle(logFileHandle)),
+        name: "CMake configuration"
     )
 
-    try cmakeBuildAndInstall(
-        in: target.buildDirURL,
-        loggingTo: logFileHandle
+    try runProcess(
+        try cmakeBuildAndInstall(
+            in: target.buildDirURL,
+            loggingTo: logFileHandle
+        ),
+        .mergeOutputError(.fileHandle(logFileHandle)),
+        name: "CMake build"
     )
 
     print("libssh2 library can be found at \(target.installDirURL.path())")
 }
 
-private func configureBuild(
+func configureLibSSH2Build(
     target: Target,
     openSSLTarget: Target,
     loggingTo logFileHandle: FileHandle,
-) throws {
+) throws -> Process {
     @Dependency(\.urlForTool) var urlForTool
 
     assert(openSSLTarget.platform == target.platform)
@@ -63,9 +71,7 @@ private func configureBuild(
         "-B", target.buildDirURL.path(),
     ]
 
-    try runProcess(
-        cmake, .mergeOutputError(.fileHandle(logFileHandle)), name: "CMake configuration"
-    )
+    return cmake
 }
 
 @discardableResult
