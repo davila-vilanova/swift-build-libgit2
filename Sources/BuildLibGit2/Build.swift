@@ -25,6 +25,8 @@ struct Build: ParsableCommand {
             $0.workDirectoryURL = workingDirectoryURL.appending(component: workDirectoryName)
             $0.outputDirectoryURL = workingDirectoryURL.appending(component: outputDirectoryName)
         } operation: {
+            @Dependency(\.outputDirectoryURL) var outputDirectoryURL
+
             let openSSLTargets = Target.targets(
                 forLibraryNamed: "openssl",
                 platforms: platforms,
@@ -76,6 +78,12 @@ struct Build: ParsableCommand {
                     )
                 }
                 try createLibGit2Framework(targets: libGit2Targets)
+                try writeModuleMap(
+                    inFrameworkAt: outputDirectoryURL.appending(
+                        component: libGit2Targets.first!.libraryName
+                    ).appendingPathExtension("xcframework"),
+                    for: libGit2Targets
+                )
             }
         }
     }

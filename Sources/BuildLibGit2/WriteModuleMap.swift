@@ -1,28 +1,37 @@
 import Foundation
 
-func writeModuleMap(inFrameworkAt frameworkURL: URL, platform: Platform, architecture: Architecture) throws {
-    let innerDirectoryName = frameworkDirectoryName(for: platform, architecture: architecture)
+func writeModuleMap(inFrameworkAt frameworkURL: URL, for targets: [Target]) throws {
+    for target in targets {
+        try writeModuleMap(inFrameworkAt: frameworkURL, for: target)
+    }
+}
+
+private func writeModuleMap(inFrameworkAt frameworkURL: URL, for target: Target) throws {
+    let innerDirectoryName = frameworkDirectoryName(for: target)
     let destination = frameworkURL.appending(
         components: innerDirectoryName, "Headers", "module.modulemap")
+
+
     try moduleMap.write(to: destination, atomically: false, encoding: .utf8)
 }
 
-private func frameworkDirectoryName(for platform: Platform, architecture: Architecture) -> String {
+private func frameworkDirectoryName(for target: Target) -> String {
     let platformSection =
-    switch platform {
+    switch target.platform {
     case .iPhoneOS: "ios"
     case .iPhoneSimulator: "ios"
     case .macOS: "macos"
     }
 
-    let archSection =
-    switch architecture {
-    case .arm64: "arm64"
-    case .x86_64: "x86_64"
-    }
+    let archSection = target.architectures.map {
+        switch $0 {
+        case .arm64: "arm64"
+        case .x86_64: "x86_64"
+        }
+    }.joined(separator: "_")
 
     let simulatorSection =
-    switch platform {
+    switch target.platform {
     case .iPhoneOS: ""
     case .iPhoneSimulator: "simulator"
     case .macOS: ""
