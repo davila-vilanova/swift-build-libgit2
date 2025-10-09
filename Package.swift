@@ -42,5 +42,12 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
             ]),
+        .testTarget(
+            name: "TestBuildLibGit2",
+            dependencies: [
+                "BuildLibGit2",
+                .product(name: "Dependencies", package: "swift-dependencies"),
+            ]
+        ),
     ]
 )
