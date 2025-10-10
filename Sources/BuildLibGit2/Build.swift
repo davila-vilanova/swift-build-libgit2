@@ -52,9 +52,9 @@ struct Build: ParsableCommand {
             if libraries.contains(.openssl) {
                 for t in openSSLTargets {
                     print("\nBuilding OpenSSL for \(t.platform), archs: \(t.architectures)")
-                    try buildOpenSSL(target: t)
+                    try BuildOpenSSL.build(target: t)
                 }
-                try createOpenSSLXCFrameworks(targets: openSSLTargets)
+                try BuildOpenSSL.createXCFrameworks(for: openSSLTargets)
             }
             if libraries.contains(.libssh2) {
                 for target in libSSH2Targets {
