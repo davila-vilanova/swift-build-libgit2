@@ -39,6 +39,7 @@ func configureLibSSH2Build(
     loggingTo logFileHandle: FileHandle,
 ) throws -> Process {
     @Dependency(\.urlForTool) var urlForTool
+    @Dependency(\.getSDKInfo) var getSDKInfo
 
     assert(openSSLTarget.platform == target.platform)
     assert(Set(openSSLTarget.architectures) == Set(target.architectures))
@@ -49,7 +50,7 @@ func configureLibSSH2Build(
 
     let openSSLLibsDir = openSSLTarget.installDirURL
 
-    let sdkInfo = try getSDKInfo(platform: target.platform)
+    let sdkInfo = try getSDKInfo(target.platform)
 
     cmake.arguments = [
         "-S", target.sourceDirURL.path(),

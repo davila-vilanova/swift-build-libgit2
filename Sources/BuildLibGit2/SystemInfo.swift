@@ -1,16 +1,37 @@
 import Dependencies
 import Foundation
 
-func getSystemCPUCount() -> Int {
+extension DependencyValues {
+    var systemCPUCount: Int {
+        get { self[SystemCPUCountKey.self] }
+        set { self[SystemCPUCountKey.self] = newValue }
+    }
+
+    var getSDKInfo: @Sendable (Platform) throws -> SDKInfo {
+        get { self[GetSDKInfoKey.self] }
+        set { self[GetSDKInfoKey.self] = newValue }
+    }
+}
+
+private enum SystemCPUCountKey: DependencyKey {
+    static let liveValue = getSystemCPUCount()
+}
+
+private enum GetSDKInfoKey: DependencyKey {
+    static let liveValue = getSDKInfo(platform:)
+}
+
+private func getSystemCPUCount() -> Int {
     return ProcessInfo.processInfo.processorCount
 }
+
 
 struct SDKInfo {
     let version: String
     let url: URL
 }
 
-func getSDKInfo(platform: Platform) throws -> SDKInfo {
+private func getSDKInfo(platform: Platform) throws -> SDKInfo {
     let xcodebuildOutput = try runToolForOutput(
         tool: "xcodebuild",
         arguments: ["-version", "-sdk", sdkName(for: platform)],

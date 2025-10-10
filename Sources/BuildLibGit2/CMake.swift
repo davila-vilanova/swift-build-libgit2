@@ -6,6 +6,7 @@ func cmakeBuildAndInstall(
     loggingTo logFileHandle: FileHandle
 ) throws -> Process {
     @Dependency(\.urlForTool) var urlForTool
+    @Dependency(\.systemCPUCount) var systemCPUCount
 
     let cmake = Process()
     cmake.currentDirectoryURL = buildDir
@@ -14,7 +15,7 @@ func cmakeBuildAndInstall(
     cmake.arguments = [
         "--build", buildDir.path(),
         "--target", "install",
-        "--parallel", "\(getSystemCPUCount())",
+        "--parallel", "\(systemCPUCount)",
     ]
     return cmake
 }
