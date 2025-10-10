@@ -54,16 +54,16 @@ struct Build: ParsableCommand {
                     print("\nBuilding OpenSSL for \(t.platform), archs: \(t.architectures)")
                     try BuildOpenSSL.build(target: t)
                 }
-                try BuildOpenSSL.createXCFrameworks(for: openSSLTargets)
+                try BuildOpenSSL.createFrameworks(for: openSSLTargets)
             }
             if libraries.contains(.libssh2) {
                 for target in libSSH2Targets {
                     print(
                         "\nBuilding LibSSH2 for \(target.platform), archs: \(target.architectures)")
                     let openSSLTarget = openSSLTargets.first { $0.platform == target.platform }!
-                    try buildLibSSH2(target: target, openSSLTarget: openSSLTarget)
+                    try BuildLibSSH2.build(target: target, openSSLTarget: openSSLTarget)
                 }
-                try createLibSSH2Framework(targets: libSSH2Targets)
+                try BuildLibSSH2.createFramework(for: libSSH2Targets)
             }
             if libraries.contains(.libgit2) {
                 for target in libGit2Targets {
@@ -71,13 +71,13 @@ struct Build: ParsableCommand {
                         "\nBuilding LibGit2 for \(target.platform), archs: \(target.architectures)")
                     let openSSLTarget = openSSLTargets.first { $0.platform == target.platform }!
                     let libSSH2Target = libSSH2Targets.first { $0.platform == target.platform }!
-                    try buildLibGit2(
+                    try BuildLibGit2.build(
                         target: target,
                         openSSLTarget: openSSLTarget,
                         libSSH2Target: libSSH2Target
                     )
                 }
-                try createLibGit2Framework(targets: libGit2Targets)
+                try BuildLibGit2.createFramework(targets: libGit2Targets)
                 try writeModuleMap(
                     inFrameworkAt: outputDirectoryURL.appending(
                         component: libGit2Targets.first!.libraryName

@@ -1,7 +1,7 @@
 import Dependencies
 import Foundation
 
-func cmakeBuildAndInstall(
+func createCmakeBuildAndInstallProcess(
     in buildDir: URL,
     loggingTo logFileHandle: FileHandle
 ) throws -> Process {

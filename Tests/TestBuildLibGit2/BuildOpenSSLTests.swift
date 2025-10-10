@@ -115,8 +115,7 @@ struct BuildOpenSSLTests {
         ])
     }
 
-    @Test func createXCFrameworks() throws {
-
+    @Test func createFrameworks() throws {
         let targets = [Platform.macOS, .iPhoneOS, .iPhoneSimulator].map {
             Target(
                 libraryName: "openssl",
@@ -139,7 +138,7 @@ struct BuildOpenSSLTests {
             $0.createDirectories = sideEffectsTracker.createDirectories
             $0.copyFileOrDirectory = sideEffectsTracker.copyFileOrDirectory
         } operation: {
-            try BuildOpenSSL.createXCFrameworks(for: targets)
+            try BuildOpenSSL.createFrameworks(for: targets)
         }
 
         #expect(sideEffectsTracker.actions == [

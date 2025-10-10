@@ -170,7 +170,7 @@ struct BuildOpenSSL {
     }
 
     @discardableResult
-    static func createXCFrameworks(for targets: [Target]) throws -> [URL] {
+    static func createFrameworks(for targets: [Target]) throws -> [URL] {
         @Dependency(\.outputDirectoryURL) var outputDirectoryURL
 
         // at least one target required
