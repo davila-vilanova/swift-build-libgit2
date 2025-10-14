@@ -23,16 +23,12 @@ struct BuildLibGit2 {
                 target: target,
                 openSSLTarget: openSSLTarget,
                 libSSH2Target: libSSH2Target,
-                loggingTo: logFileHandle,
             ),
             .mergeOutputError(.fileHandle(logFileHandle))
         )
 
         try runProcess(
-            try createCmakeBuildAndInstallProcess(
-                in: target.buildDirURL,
-                loggingTo: logFileHandle
-            ),
+            try createCmakeBuildAndInstallProcess(in: target.buildDirURL),
             .mergeOutputError(.fileHandle(logFileHandle))
         )
     }
@@ -41,7 +37,6 @@ struct BuildLibGit2 {
         target: Target,
         openSSLTarget: Target,
         libSSH2Target: Target,
-        loggingTo logFileHandle: FileHandle,
     ) throws -> Process {
         @Dependency(\.urlForTool) var urlForTool
         @Dependency(\.getSDKInfo) var getSDKInfo

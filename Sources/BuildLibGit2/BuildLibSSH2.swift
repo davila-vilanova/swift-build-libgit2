@@ -18,16 +18,12 @@ struct BuildLibSSH2 {
             try createConfigureProcess(
                 target: target,
                 openSSLTarget: openSSLTarget,
-                loggingTo: logFileHandle,
             ),
             .mergeOutputError(.fileHandle(logFileHandle))
         )
 
         try runProcess(
-            try createCmakeBuildAndInstallProcess(
-                in: target.buildDirURL,
-                loggingTo: logFileHandle
-            ),
+            try createCmakeBuildAndInstallProcess(in: target.buildDirURL),
             .mergeOutputError(.fileHandle(logFileHandle)),
         )
 
@@ -37,7 +33,6 @@ struct BuildLibSSH2 {
     static func createConfigureProcess(
         target: Target,
         openSSLTarget: Target,
-        loggingTo logFileHandle: FileHandle,
     ) throws -> Process {
         @Dependency(\.urlForTool) var urlForTool
         @Dependency(\.getSDKInfo) var getSDKInfo

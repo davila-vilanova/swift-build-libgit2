@@ -1,10 +1,7 @@
 import Dependencies
 import Foundation
 
-func createCmakeBuildAndInstallProcess(
-    in buildDir: URL,
-    loggingTo logFileHandle: FileHandle
-) throws -> Process {
+func createCmakeBuildAndInstallProcess(in buildDir: URL) throws -> Process {
     @Dependency(\.urlForTool) var urlForTool
     @Dependency(\.systemCPUCount) var systemCPUCount
 
